@@ -61,49 +61,49 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
   func prop(name: Text, f: Set.Set<Nat> -> Bool): Suite.Suite {
     var error_msg: Text = "";
     test(name, do {
-        var error = true;
-        label stop for(sets in setGenN(set_samples, size, range, 1)) {
-          if (not f(sets[0])) {
-            error_msg := "Property \"" # name # "\" failed\n";
-            error_msg #= "\n s: " # debug_show(Iter.toArray(Set.elements(sets[0])));
-            break stop;
-          }
-        };
-        error_msg
-      }, M.describedAs(error_msg, M.equals(T.text(""))))
+      var error = true;
+      label stop for(sets in setGenN(set_samples, size, range, 1)) {
+        if (not f(sets[0])) {
+          error_msg := "Property \"" # name # "\" failed\n";
+          error_msg #= "\n s: " # debug_show(Iter.toArray(Set.elements(sets[0])));
+          break stop;
+        }
+      };
+      error_msg
+    }, M.describedAs(error_msg, M.equals(T.text(""))))
   };
 
   func prop2(name: Text, f: (Set.Set<Nat>, Set.Set<Nat>) -> Bool): Suite.Suite {
     var error_msg: Text = "";
     test(name, do {
-        var error = true;
-        label stop for(sets in setGenN(set_samples, size, range, 2)) {
-          if (not f(sets[0], sets[1])) {
-            error_msg := "Property \"" # name # "\" failed\n";
-            error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(sets[0])));
-            error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(sets[1])));
-            break stop;
-          }
-        };
-        error_msg
-      }, M.describedAs(error_msg, M.equals(T.text(""))))
+      var error = true;
+      label stop for(sets in setGenN(set_samples, size, range, 2)) {
+        if (not f(sets[0], sets[1])) {
+          error_msg := "Property \"" # name # "\" failed\n";
+          error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(sets[0])));
+          error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(sets[1])));
+          break stop;
+        }
+      };
+      error_msg
+    }, M.describedAs(error_msg, M.equals(T.text(""))))
   };
 
   func prop3(name: Text, f: (Set.Set<Nat>, Set.Set<Nat>, Set.Set<Nat>) -> Bool): Suite.Suite {
     var error_msg: Text = "";
     test(name, do {
-        var error = true;
-        label stop for(sets in setGenN(set_samples, size, range, 3)) {
-          if (not f(sets[0], sets[1], sets[2])) {
-            error_msg := "Property \"" # name # "\" failed\n";
-            error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(sets[0])));
-            error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(sets[1])));
-            error_msg #= "\n s3: " # debug_show(Iter.toArray(Set.elements(sets[2])));
-            break stop;
-          }
-        };
-        error_msg
-      }, M.describedAs(error_msg, M.equals(T.text(""))))
+      var error = true;
+      label stop for(sets in setGenN(set_samples, size, range, 3)) {
+        if (not f(sets[0], sets[1], sets[2])) {
+          error_msg := "Property \"" # name # "\" failed\n";
+          error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(sets[0])));
+          error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(sets[1])));
+          error_msg #= "\n s3: " # debug_show(Iter.toArray(Set.elements(sets[2])));
+          break stop;
+        }
+      };
+      error_msg
+    }, M.describedAs(error_msg, M.equals(T.text(""))))
   };
 
   func prop_with_elem(name: Text, f: (Set.Set<Nat>, Nat) -> Bool): Suite.Suite {
