@@ -574,8 +574,7 @@ module {
     acc
   };
 
-
-  module Internal {
+  public module Internal {
 
     public func fromIter<K, V>(i : I.Iter<(K,V)>, compare : (K, K) -> O.Order) : Map<K, V>
     {
@@ -887,6 +886,105 @@ module {
         };
         case other { (other, y0) };
       };
-    }
+    };
+
+    // TODO: Instead, consider storing the black height in the node constructor
+    public func blackHeight<K, V> (rbMap : Map<K, V>) : Nat {
+      func f (node : Map<K, V>, acc : Nat) : Nat {
+        switch node {
+          case (#leaf) { acc };
+          case (#node (#R, l1, _, _)) { f(l1, acc) };
+          case (#node (#B, l1, _, _)) { f(l1, acc + 1) }
+        }
+      };
+      f (rbMap, 0)
+    };
+
+    public func joinL<K, V>(l : Map<K, V>, x : (K, V), r : Map<K, V>) : Map<K, V> {
+      if (blackHeight r <= blackHeight l) { (#node (#R, l, x, r)) }
+      else {
+        switch r {
+          case (#node (#R, rl, rx, rr)) { (#node (#R, joinL(l, x, rl) , rx, rr)) };
+          case (#node (#B, rl, rx, rr)) { balLeft (joinL(l, x, rl), rx, rr) };
+          case _ { Debug.trap "joinL" };
+        }
+      }
+    };
+
+    public func joinR<K, V>(l : Map<K, V>, x : (K, V), r : Map<K, V>) : Map<K, V> {
+      if (blackHeight l <= blackHeight r) { (#node (#R, l, x, r)) }
+      else {
+        switch l {
+          case (#node (#R, ll, lx, lr)) { (#node (#R, ll , lx, joinR (lr, x, r))) };
+          case (#node (#B, ll, lx, lr)) { balRight (ll, lx, joinR (lr, x, r)) };
+          case _ { Debug.trap "joinR" };
+        }
+      }
+    };
+
+    public func paint<K, V>(color : Color, rbMap : Map<K, V>) : Map<K, V> {
+      switch rbMap {
+        case (#leaf) { #leaf };
+        case (#node (_, l, x, r)) { (#node (color, l, x, r)) };
+      }
+    };
+
+    public func splitMin<K,V> (rbMap : Map<K,V>) : ((K,V), Map<K,V>) {
+      switch rbMap {
+        case (#leaf) { Debug.trap "splitMin" };
+        case (#node(_, #leaf, x, r)) { (x, r) };
+        case (#node(_, l, x, r)) {
+          let (m, l2) = splitMin l;
+          (m, join(l2, x, r))
+        };
+      }
+    };
+
+    // Joins an element and two trees.
+    // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
+    public func join<K, V>(l : Map<K, V>, x : (K, V), r : Map<K, V>) : Map<K, V> {
+      if (Internal.blackHeight r < Internal.blackHeight l) {
+        return Internal.paint(#B, Internal.joinR(l, x, r))
+      };
+      if (Internal.blackHeight l < Internal.blackHeight r) {
+        return Internal.paint(#B, Internal.joinL(l, x, r))
+      };
+      return (#node (#B, l, x, r))
+    };
+
+    // Joins two trees.
+    // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
+    public func join2<K, V>(l : Map<K, V>, r : Map<K, V>) : Map<K, V> {
+      switch r {
+        case (#leaf) { l };
+        case _ {
+          let (m, r2) = Internal.splitMin r;
+          join(l, m, r2)
+        };
+      }
+    };
+
+    // Splits `rbMap` with respect to a given element `x`, into tuple `(l, b, r)`
+    // such that `l` contains the elements less than `x`, `r` contains the elements greater than `x`
+    // and `b` is `true` if `x` was in the `rbMap`.
+    // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
+    public func split<K, V>(x : K, rbMap : Map<K, V>, compare : (K, K) -> O.Order) : (Map<K, V>, Bool, Map<K, V>) {
+      switch rbMap {
+        case (#leaf) { (#leaf, false, #leaf)};
+        case (#node (_, l, (k, v), r)) {
+          switch (compare(x, k)) {
+            case (#less) {
+              let (l1, b, l2) = split(x, l, compare);
+              (l1, b, join(l2, (k, v), r))
+            };
+            case (#equal) { (l, true, r) };
+            case (#greater) {
+              let (r1, b, r2) = split(x, r, compare);
+              (join(l, (k, v), r1), b, r2)
+            };
+          };
+        };
+      };
+    };
   }
 }
