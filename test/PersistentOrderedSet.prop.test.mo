@@ -43,46 +43,15 @@ object Random {
   }
 };
 
-func setGen(samples_number: Nat, size: Nat, range: (Nat, Nat)): Iter.Iter<Set.Set<Nat>> {
+func setGenN(samples_number: Nat, size: Nat, range: (Nat, Nat), chunkSize: Nat): Iter.Iter<[Set.Set<Nat>]> {
   object {
     var n = 0;
-    public func next(): ?Set.Set<Nat>  {
+    public func next(): ?([Set.Set<Nat>])  {
       n += 1;
       if (n > samples_number) {
         null
       } else {
-        ?natSet.fromIter(Random.nextEntries(range, size).vals())
-      }
-    }
-  }
-};
-
-func setGen2(samples_number: Nat, size: Nat, range: (Nat, Nat)): Iter.Iter<(Set.Set<Nat>, Set.Set<Nat>)> {
-  object {
-    var n = 0;
-    public func next(): ?(Set.Set<Nat>, Set.Set<Nat>)  {
-      n += 1;
-      if (n > samples_number) {
-        null
-      } else {
-        ?(natSet.fromIter(Random.nextEntries(range, size).vals()),
-          natSet.fromIter(Random.nextEntries(range, size).vals()))
-      }
-    }
-  }
-};
-
-func setGen3(samples_number: Nat, size: Nat, range: (Nat, Nat)): Iter.Iter<(Set.Set<Nat>, Set.Set<Nat>, Set.Set<Nat>)> {
-  object {
-    var n = 0;
-    public func next(): ?(Set.Set<Nat>, Set.Set<Nat>, Set.Set<Nat>)  {
-      n += 1;
-      if (n > samples_number) {
-        null
-      } else {
-        ?(natSet.fromIter(Random.nextEntries(range, size).vals()),
-          natSet.fromIter(Random.nextEntries(range, size).vals()),
-          natSet.fromIter(Random.nextEntries(range, size).vals()))
+        ?Array.tabulate<Set.Set<Nat>>(chunkSize, func _i = natSet.fromIter(Random.nextEntries(range, size).vals()))
       }
     }
   }
@@ -93,10 +62,10 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
     var error_msg: Text = "";
     test(name, do {
         var error = true;
-        label stop for(set in setGen(set_samples, size, range)) {
-          if (not f(set)) {
+        label stop for(sets in setGenN(set_samples, size, range, 1)) {
+          if (not f(sets[0])) {
             error_msg := "Property \"" # name # "\" failed\n";
-            error_msg #= "\n s: " # debug_show(Iter.toArray(Set.elements(set)));
+            error_msg #= "\n s: " # debug_show(Iter.toArray(Set.elements(sets[0])));
             break stop;
           }
         };
@@ -108,11 +77,11 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
     var error_msg: Text = "";
     test(name, do {
         var error = true;
-        label stop for((set1, set2) in setGen2(set_samples, size, range)) {
-          if (not f(set1, set2)) {
+        label stop for(sets in setGenN(set_samples, size, range, 2)) {
+          if (not f(sets[0], sets[1])) {
             error_msg := "Property \"" # name # "\" failed\n";
-            error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(set1)));
-            error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(set2)));
+            error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(sets[0])));
+            error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(sets[1])));
             break stop;
           }
         };
@@ -124,12 +93,12 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
     var error_msg: Text = "";
     test(name, do {
         var error = true;
-        label stop for((set1, set2, set3) in setGen3(set_samples, size, range)) {
-          if (not f(set1, set2, set3)) {
+        label stop for(sets in setGenN(set_samples, size, range, 3)) {
+          if (not f(sets[0], sets[1], sets[2])) {
             error_msg := "Property \"" # name # "\" failed\n";
-            error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(set1)));
-            error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(set2)));
-            error_msg #= "\n s3: " # debug_show(Iter.toArray(Set.elements(set3)));
+            error_msg #= "\n s1: " # debug_show(Iter.toArray(Set.elements(sets[0])));
+            error_msg #= "\n s2: " # debug_show(Iter.toArray(Set.elements(sets[1])));
+            error_msg #= "\n s3: " # debug_show(Iter.toArray(Set.elements(sets[2])));
             break stop;
           }
         };
@@ -140,19 +109,19 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
   func prop_with_elem(name: Text, f: (Set.Set<Nat>, Nat) -> Bool): Suite.Suite {
     var error_msg: Text = "";
     test(name, do {
-        label stop for(set in setGen(set_samples, size, range)) {
-          for (_query_ix in Iter.range(0, query_samples-1)) {
-            let key = Random.nextNat(range);
-            if (not f(set, key)) {
-              error_msg #= "Property \"" # name # "\" failed";
-              error_msg #= "\n s: " # debug_show(Iter.toArray(Set.elements(set)));
-              error_msg #= "\n e: " # debug_show(key);
-              break stop;
-            }
+      label stop for(sets in setGenN(set_samples, size, range, 1)) {
+        for (_query_ix in Iter.range(0, query_samples-1)) {
+          let key = Random.nextNat(range);
+          if (not f(sets[0], key)) {
+            error_msg #= "Property \"" # name # "\" failed";
+            error_msg #= "\n s: " # debug_show(Iter.toArray(Set.elements(sets[0])));
+            error_msg #= "\n e: " # debug_show(key);
+            break stop;
           }
-        };
-        error_msg
-      }, M.describedAs(error_msg, M.equals(T.text(""))))
+        }
+      };
+      error_msg
+    }, M.describedAs(error_msg, M.equals(T.text(""))))
   };
 
   run(
@@ -172,6 +141,11 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
       suite("contains & put", [
         prop_with_elem("contains(put(s, e), e)", func (s, e) {
           natSet.contains(natSet.put(s, e), e)
+        }),
+        prop_with_elem("put(put(s, e), e) == put(s, e)", func (s, e) {
+          let s1 = natSet.put(s, e);
+          let s2 = natSet.put(natSet.put(s, e), e);
+          SetMatcher(s1).matches(s2)
         }),
       ]),
 
@@ -280,6 +254,12 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
         }),
         prop2("union(s1, s2) == union(s2, s1)", func (s1, s2) {
           SetMatcher(natSet.union(s1, s2)).matches(natSet.union(s2, s1))
+        }),
+        prop2("isSubset(diff(s1, s2), s1)", func (s1, s2) {
+          natSet.isSubset(natSet.diff(s1, s2), s1)
+        }),
+        prop2("intersect(diff(s1, s2), s2) == empty()", func (s1, s2) {
+          SetMatcher(natSet.intersect(natSet.diff(s1, s2), s2)).matches(Set.empty())
         }),
         prop3("union(union(s1, s2), s3) == union(s1, union(s2, s3))", func (s1, s2, s3) {
           SetMatcher(natSet.union(natSet.union(s1, s2), s3)).matches(natSet.union(s1, natSet.union(s2, s3)))
