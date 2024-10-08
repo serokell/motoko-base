@@ -324,27 +324,49 @@ module {
   ///
   /// Note: Full map iteration creates `O(n)` temporary objects that will be collected as garbage.
   public func iter<K, V>(rbMap : Map<K, V>, direction : Direction) : I.Iter<(K, V)> {
-    object {
-      var trees : IterRep<K, V> = ?(#tr(rbMap), null);
-      public func next() : ?(K, V) {
-        switch (direction, trees) {
-          case (_, null) { null };
-          case (_, ?(#tr(#leaf), ts)) {
-            trees := ts;
-            next()
-          };
-          case (_, ?(#xy(xy), ts)) {
-            trees := ts;
-            ?xy
-          }; // TODO: Let's float-out case on direction
-          case (#fwd, ?(#tr(#node(_, l, xy, r)), ts)) {
-            trees := ?(#tr(l), ?(#xy(xy), ?(#tr(r), ts)));
-            next()
-          };
-          case (#bwd, ?(#tr(#node(_, l, xy, r)), ts)) {
-            trees := ?(#tr(r), ?(#xy(xy), ?(#tr(l), ts)));
-            next()
-          }
+    switch direction {
+      case (#fwd) { iterForward(rbMap) };
+      case (#bwd) { iterBackward(rbMap) }
+    }
+  };
+
+  func iterForward<K, V>(rbMap : Map<K, V>) : I.Iter<(K, V)> = object {
+    var trees : IterRep<K, V> = ?(#tr(rbMap), null);
+    public func next() : ?(K, V) {
+      switch (trees) {
+        case (null) { null };
+        case (?(#tr(#leaf), ts)) {
+          trees := ts;
+          next()
+        };
+        case (?(#xy(xy), ts)) {
+          trees := ts;
+          ?xy
+        };
+        case (?(#tr(#node(_, l, xy, r)), ts)) {
+          trees := ?(#tr(l), ?(#xy(xy), ?(#tr(r), ts)));
+          next()
+        }
+      }
+    }
+  };
+
+  func iterBackward<K, V>(rbMap : Map<K, V>) : I.Iter<(K, V)> = object {
+    var trees : IterRep<K, V> = ?(#tr(rbMap), null);
+    public func next() : ?(K, V) {
+      switch (trees) {
+        case (null) { null };
+        case (?(#tr(#leaf), ts)) {
+          trees := ts;
+          next()
+        };
+        case (?(#xy(xy), ts)) {
+          trees := ts;
+          ?xy
+        };
+        case (?(#tr(#node(_, l, xy, r)), ts)) {
+          trees := ?(#tr(r), ?(#xy(xy), ?(#tr(l), ts)));
+          next()
         }
       }
     }
