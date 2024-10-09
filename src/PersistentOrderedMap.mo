@@ -26,6 +26,7 @@ import I "Iter";
 import List "List";
 import Nat "Nat";
 import O "Order";
+import S "Stack";
 
 // TODO: a faster, more compact and less indirect representation would be:
 // type Map<K, V> = {
@@ -549,14 +550,27 @@ module {
     combine : (Key, Value, Accum) -> Accum
   ) : Accum
   {
-    switch (rbMap) {
-      case (#leaf) { base };
-      case (#node(_, l, (k, v), r)) {
-        let left = foldLeft(l, base, combine);
-        let middle = combine(k, v, left);
-        foldLeft(r, middle, combine)
-      }
-    }
+    func getMin(
+      stack : Internal.MapStack<Key, Value>,
+      folder : Internal.Folder<Key, Value, Accum>,
+      acc : Accum
+    ) : Accum
+    {
+      for (tree in Internal.iterStack(stack)) {
+        switch(tree) {
+          case (#leaf) { };
+          case (#node(_, #leaf, val, b)) {
+            Internal.pushMap(b, stack);
+            return (folder val)
+          };
+          case (#node(_, a, val, b)) {
+            Internal.pushNode(a, val, b, stack);
+          }
+        }
+      };
+      acc
+    };
+    Internal.fold(getMin, combine, base, rbMap)
   };
 
   /// Collapses the elements in `rbMap` into a single value by starting with `base`
@@ -592,14 +606,27 @@ module {
     combine : (Key, Value, Accum) -> Accum
   ) : Accum
   {
-    switch (rbMap) {
-      case (#leaf) { base };
-      case (#node(_, l, (k, v), r)) {
-        let right = foldRight(r, base, combine);
-        let middle = combine(k, v, right);
-        foldRight(l, middle, combine)
-      }
-    }
+    func getMax(
+      stack : Internal.MapStack<Key, Value>,
+      folder : Internal.Folder<Key, Value, Accum>,
+      acc : Accum
+    ) : Accum
+    {
+      for (tree in Internal.iterStack(stack)) {
+        switch(tree) {
+          case (#leaf) { };
+          case (#node(_, a, val, #leaf)) {
+            Internal.pushMap(a, stack);
+            return (folder val);
+          };
+          case (#node(_, a, val, b)) {
+            Internal.pushNode(b, val, a, stack);
+          }
+        }
+      };
+      acc
+    };
+    Internal.fold(getMax, combine, base, rbMap)
   };
 
 
@@ -749,6 +776,42 @@ module {
         };
         case other { other };
       };
+    };
+
+    public type MapStack<K, V> = S.Stack<Map<K, V>>;
+
+    public func pushMap<K,V>(m : Map<K, V>, st : MapStack<K,V>) {
+      switch m {
+        case (#leaf) { };
+        case _       { st.push(m) }
+      }
+    };
+
+    public func pushNode<K, V>(left : Map<K,V>, node : (K, V), right : Map<K,V>, stack : MapStack<K,V>){
+      pushMap(right, stack);
+      stack.push(#node(#B, #leaf, node, #leaf));
+      stack.push(left)
+    };
+
+    public func iterStack<T>(stack : S.Stack<T>) : I.Iter<T> = { next = stack.pop };
+
+    public type Folder<Key, Value, Accum> = (Key, Value) -> Accum;
+
+    public func fold<Key, Value, Accum>(
+      get : (MapStack<Key, Value>, Folder<Key, Value, Accum>, Accum) -> Accum,
+      step : (Key, Value, Accum) -> Accum,
+      empty : Accum,
+      map : Map<Key, Value>
+    ) : Accum
+    {
+      let stack = S.Stack<Map<Key, Value>>();
+      stack.push(map);
+      func go(acc : Accum) : Accum {
+        func folder(k : Key, v : Value): Accum
+          = go(step(k, v, acc));
+        get(stack, folder, acc);
+      };
+      go(empty)
     };
 
     public func replace<K, V>(
