@@ -536,11 +536,14 @@ module {
     combine : (Key, Value, Accum) -> Accum
   ) : Accum
   {
-    var acc = base;
-    for(val in iter(rbMap, #fwd)){
-      acc := combine(val.0, val.1, acc);
-    };
-    acc
+    switch (rbMap) {
+      case (#leaf) { base };
+      case (#node(_, l, (k, v), r)) {
+        let left = foldLeft(l, base, combine);
+        let middle = combine(k, v, left);
+        foldLeft(r, middle, combine)
+      }
+    }
   };
 
   /// Collapses the elements in `rbMap` into a single value by starting with `base`
@@ -576,11 +579,14 @@ module {
     combine : (Key, Value, Accum) -> Accum
   ) : Accum
   {
-    var acc = base;
-    for(val in iter(rbMap, #bwd)){
-      acc := combine(val.0, val.1, acc);
-    };
-    acc
+    switch (rbMap) {
+      case (#leaf) { base };
+      case (#node(_, l, (k, v), r)) {
+        let right = foldRight(r, base, combine);
+        let middle = combine(k, v, right);
+        foldRight(l, middle, combine)
+      }
+    }
   };
 
 
