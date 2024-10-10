@@ -45,7 +45,7 @@ module {
   /// The keys have the generic type `K` and the values the generic type `V`.
   /// Leaves are considered implicitly black.
   public type Map<K, V> = {
-    #node : (Color, Map<K, V>, (K, V), Map<K, V>);
+    #node : (Color, Map<K, V>, K, V, Map<K, V>);
     #leaf
   };
 
@@ -343,8 +343,8 @@ module {
           trees := ts;
           ?xy
         };
-        case (?(#tr(#node(_, l, xy, r)), ts)) {
-          trees := ?(#tr(l), ?(#xy(xy), ?(#tr(r), ts)));
+        case (?(#tr(#node(_, l, x, y, r)), ts)) {
+          trees := ?(#tr(l), ?(#xy(x,y), ?(#tr(r), ts)));
           next()
         }
       }
@@ -364,8 +364,8 @@ module {
           trees := ts;
           ?xy
         };
-        case (?(#tr(#node(_, l, xy, r)), ts)) {
-          trees := ?(#tr(r), ?(#xy(xy), ?(#tr(l), ts)));
+        case (?(#tr(#node(_, l, x, y, r)), ts)) {
+          trees := ?(#tr(r), ?(#xy(x, y), ?(#tr(l), ts)));
           next()
         }
       }
@@ -480,8 +480,8 @@ module {
     func mapRec(m : Map<K, V1>) : Map<K, V2> {
       switch m {
         case (#leaf) { #leaf };
-        case (#node(c, l, xy, r)) {
-          #node(c, mapRec l, (xy.0, f xy), mapRec r) // TODO: try destination-passing style to avoid non tail-call recursion
+        case (#node(c, l, x, y, r)) {
+          #node(c, mapRec l, x, f(x, y), mapRec r) // TODO: try destination-passing style to avoid non tail-call recursion
         };
       }
     };
@@ -510,7 +510,7 @@ module {
   public func size<K, V>(t : Map<K, V>) : Nat {
     switch t {
       case (#leaf) { 0 };
-      case (#node(_, l, _, r)) {
+      case (#node(_, l, _, _, r)) {
         size(l) + size(r) + 1
       }
     }
@@ -551,7 +551,7 @@ module {
   {
     switch (rbMap) {
       case (#leaf) { base };
-      case (#node(_, l, (k, v), r)) {
+      case (#node(_, l, k, v, r)) {
         let left = foldLeft(l, base, combine);
         let middle = combine(k, v, left);
         foldLeft(r, middle, combine)
@@ -594,7 +594,7 @@ module {
   {
     switch (rbMap) {
       case (#leaf) { base };
-      case (#node(_, l, (k, v), r)) {
+      case (#node(_, l, k, v, r)) {
         let right = foldRight(r, base, combine);
         let middle = combine(k, v, right);
         foldRight(l, middle, combine)
@@ -626,14 +626,14 @@ module {
       foldLeft(t, #leaf, combine)
     };
 
-    public func get<K, V>(t : Map<K, V>, compare : (K, K) -> O.Order, x : K) : ?V {
+    public func get<K, V>(t : Map<K, V>, compare : (K, K) -> O.Order, x0 : K) : ?V {
       switch t {
         case (#leaf) { null };
-        case (#node(_c, l, xy, r)) {
-          switch (compare(x, xy.0)) {
-            case (#less) { get(l, compare, x) };
-            case (#equal) { ?xy.1 };
-            case (#greater) { get(r, compare, x) }
+        case (#node(_c, l, x1, y, r)) {
+          switch (compare(x0, x1)) {
+            case (#less) { get(l, compare, x0) };
+            case (#equal) { ?y };
+            case (#greater) { get(r, compare, x0) }
           }
         }
       }
@@ -641,8 +641,8 @@ module {
 
     func redden<K, V>(t : Map<K, V>) : Map<K, V> {
       switch t {
-        case (#node (#B, l, xy, r)) {
-          (#node (#R, l, xy, r))
+        case (#node (#B, l, x, y, r)) {
+          (#node (#R, l, x, y, r))
         };
         case _ {
           Debug.trap "RBTree.red"
@@ -650,46 +650,46 @@ module {
       }
     };
 
-    func lbalance<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
+    func lbalance<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (#node(#R, #node(#R, l1, xy1, r1), xy2, r2), r) {
+        case (#node(#R, #node(#R, l1, x1, y1, r1), x2, y2, r2), r) {
           #node(
             #R,
-            #node(#B, l1, xy1, r1),
-            xy2,
-            #node(#B, r2, xy, r))
+            #node(#B, l1, x1, y1, r1),
+            x2, y2,
+            #node(#B, r2, x0, y0, r))
         };
-        case (#node(#R, l1, xy1, #node(#R, l2, xy2, r2)), r) {
+        case (#node(#R, l1, x1, y1, #node(#R, l2, x2, y2, r2)), r) {
           #node(
             #R,
-            #node(#B, l1, xy1, l2),
-            xy2,
-            #node(#B, r2, xy, r))
+            #node(#B, l1, x1, y1, l2),
+            x2, y2,
+            #node(#B, r2, x0, y0, r))
         };
         case _ {
-          #node(#B, left, xy, right)
+          #node(#B, left, x0, y0, right)
         }
       }
     };
 
-    func rbalance<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
+    func rbalance<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (l, #node(#R, l1, xy1, #node(#R, l2, xy2, r2))) {
+        case (l, #node(#R, l1, x1, y1, #node(#R, l2, x2, y2, r2))) {
           #node(
             #R,
-            #node(#B, l, xy, l1),
-            xy1,
-            #node(#B, l2, xy2, r2))
+            #node(#B, l, x0, y0, l1),
+            x1, y1,
+            #node(#B, l2, x2, y2, r2))
         };
-        case (l, #node(#R, #node(#R, l1, xy1, r1), xy2, r2)) {
+        case (l, #node(#R, #node(#R, l1, x1, y1, r1), x2, y2, r2)) {
           #node(
             #R,
-            #node(#B, l, xy, l1),
-            xy1,
-            #node(#B, r1, xy2, r2))
+            #node(#B, l, x0, y0, l1),
+            x1, y1,
+            #node(#B, r1, x2, y2, r2))
         };
         case _ {
-          #node(#B, left, xy, right)
+          #node(#B, left, x0, y0, right)
         };
       }
     };
@@ -707,41 +707,41 @@ module {
       func ins(tree : Map<K,V>) : Map<K,V> {
         switch tree {
           case (#leaf) {
-            #node(#R, #leaf, (key,val), #leaf)
+            #node(#R, #leaf, key,val, #leaf)
           };
-          case (#node(#B, left, xy, right)) {
-            switch (compare (key, xy.0)) {
+          case (#node(#B, left, x, y, right)) {
+            switch (compare (key, x)) {
               case (#less) {
-                lbalance(ins left, xy, right)
+                lbalance(ins left, x, y, right)
               };
               case (#greater) {
-                rbalance(left, xy, ins right)
+                rbalance(left, x, y, ins right)
               };
               case (#equal) {
-                let newVal = onClash({ new = val; old = xy.1 });
-                #node(#B, left, (key,newVal), right)
+                let newVal = onClash({ new = val; old = y });
+                #node(#B, left, key, newVal, right)
               }
             }
           };
-          case (#node(#R, left, xy, right)) {
-            switch (compare (key, xy.0)) {
+          case (#node(#R, left, x, y, right)) {
+            switch (compare (key, x)) {
               case (#less) {
-                #node(#R, ins left, xy, right)
+                #node(#R, ins left, x, y, right)
               };
               case (#greater) {
-                #node(#R, left, xy, ins right)
+                #node(#R, left, x, y, ins right)
               };
               case (#equal) {
-                let newVal = onClash { new = val; old = xy.1 };
-                #node(#R, left, (key,newVal), right)
+                let newVal = onClash { new = val; old = y };
+                #node(#R, left, key, newVal, right)
               }
             }
           }
         };
       };
       switch (ins m) {
-        case (#node(#R, left, xy, right)) {
-          #node(#B, left, xy, right);
+        case (#node(#R, left, x, y, right)) {
+          #node(#B, left, x, y, right);
         };
         case other { other };
       };
@@ -772,44 +772,44 @@ module {
     ) : Map<K, V> = replace(m, compare, key, val).0;
 
 
-    func balLeft<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
+    func balLeft<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (#node(#R, l1, xy1, r1), r) {
+        case (#node(#R, l1, x1, y1, r1), r) {
           #node(
             #R,
-            #node(#B, l1, xy1, r1),
-            xy,
+            #node(#B, l1, x1, y1, r1),
+            x0, y0,
             r)
         };
-        case (_, #node(#B, l2, xy2, r2)) {
-          rbalance(left, xy, #node(#R, l2, xy2, r2))
+        case (_, #node(#B, l2, x2, y2, r2)) {
+          rbalance(left, x0, y0, #node(#R, l2, x2, y2, r2))
         };
-        case (_, #node(#R, #node(#B, l2, xy2, r2), xy3, r3)) {
+        case (_, #node(#R, #node(#B, l2, x2, y2, r2), x3, y3, r3)) {
           #node(#R,
-            #node(#B, left, xy, l2),
-            xy2,
-            rbalance(r2, xy3, redden r3))
+            #node(#B, left, x0, y0, l2),
+            x2, y2,
+            rbalance(r2, x3, y3, redden r3))
         };
         case _ { Debug.trap "balLeft" };
       }
     };
 
-    func balRight<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
+    func balRight<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (l, #node(#R, l1, xy1, r1)) {
+        case (l, #node(#R, l1, x1, y1, r1)) {
           #node(#R,
             l,
-            xy,
-            #node(#B, l1, xy1, r1))
+            x0, y0,
+            #node(#B, l1, x1, y1, r1))
         };
-        case (#node(#B, l1, xy1, r1), r) {
-          lbalance(#node(#R, l1, xy1, r1), xy, r);
+        case (#node(#B, l1, x1, y1, r1), r) {
+          lbalance(#node(#R, l1, x1, y1, r1), x0, y0, r);
         };
-        case (#node(#R, l1, xy1, #node(#B, l2, xy2, r2)), r3) {
+        case (#node(#R, l1, x1, y1, #node(#B, l2, x2, y2, r2)), r3) {
           #node(#R,
-            lbalance(redden l1, xy1, l2),
-            xy2,
-            #node(#B, r2, xy, r3))
+            lbalance(redden l1, x1, y1, l2),
+            x2, y2,
+            #node(#B, r2, x0, y0, r3))
         };
         case _ { Debug.trap "balRight" };
       }
@@ -819,40 +819,40 @@ module {
       switch (left, right) {
         case (#leaf,  _) { right };
         case (_,  #leaf) { left };
-        case (#node (#R, l1, xy1, r1),
-              #node (#R, l2, xy2, r2)) {
+        case (#node (#R, l1, x1, y1, r1),
+              #node (#R, l2, x2, y2, r2)) {
           switch (append (r1, l2)) {
-            case (#node (#R, l3, xy3, r3)) {
+            case (#node (#R, l3, x3, y3, r3)) {
               #node(
                 #R,
-                #node(#R, l1, xy1, l3),
-                xy3,
-                #node(#R, r3, xy2, r2))
+                #node(#R, l1, x1, y1, l3),
+                x3, y3,
+                #node(#R, r3, x2, y2, r2))
             };
             case r1l2 {
-              #node(#R, l1, xy1, #node(#R, r1l2, xy2, r2))
+              #node(#R, l1, x1, y1, #node(#R, r1l2, x2, y2, r2))
             }
           }
         };
-        case (t1, #node(#R, l2, xy2, r2)) {
-          #node(#R, append(t1, l2), xy2, r2)
+        case (t1, #node(#R, l2, x2, y2, r2)) {
+          #node(#R, append(t1, l2), x2, y2, r2)
         };
-        case (#node(#R, l1, xy1, r1), t2) {
-          #node(#R, l1, xy1, append(r1, t2))
+        case (#node(#R, l1, x1, y1, r1), t2) {
+          #node(#R, l1, x1, y1, append(r1, t2))
         };
-        case (#node(#B, l1, xy1, r1), #node (#B, l2, xy2, r2)) {
+        case (#node(#B, l1, x1, y1, r1), #node (#B, l2, x2, y2, r2)) {
           switch (append (r1, l2)) {
-            case (#node (#R, l3, xy3, r3)) {
+            case (#node (#R, l3, x3, y3, r3)) {
               #node(#R,
-                #node(#B, l1, xy1, l3),
-                xy3,
-                #node(#B, r3, xy2, r2))
+                #node(#B, l1, x1, y1, l3),
+                x3, y3,
+                #node(#B, r3, x2, y2, r2))
             };
             case r1l2 {
               balLeft (
                 l1,
-                xy1,
-                #node(#B, r1l2, xy2, r2)
+                x1, y1,
+                #node(#B, r1l2, x2, y2, r2)
               )
             }
           }
@@ -863,34 +863,34 @@ module {
     public func delete<K, V>(m : Map<K, V>, compare : (K, K) -> O.Order, key : K) : Map<K, V>
       = remove(m, compare, key).0;
 
-    public func remove<K, V>(tree : Map<K, V>, compare : (K, K) -> O.Order, x : K) : (Map<K,V>, ?V) {
+    public func remove<K, V>(tree : Map<K, V>, compare : (K, K) -> O.Order, x0 : K) : (Map<K,V>, ?V) {
       var y0 : ?V = null;
-      func delNode(left : Map<K,V>, xy : (K, V), right : Map<K,V>) : Map<K,V> {
-        switch (compare (x, xy.0)) {
+      func delNode(left : Map<K,V>, x1 : K, y1 : V, right : Map<K,V>) : Map<K,V> {
+        switch (compare (x0, x1)) {
           case (#less) {
             let newLeft = del left;
             switch left {
-              case (#node(#B, _, _, _)) {
-                balLeft(newLeft, xy, right)
+              case (#node(#B, _, _, _, _)) {
+                balLeft(newLeft, x1, y1, right)
               };
               case _ {
-                #node(#R, newLeft, xy, right)
+                #node(#R, newLeft, x1, y1, right)
               }
             }
           };
           case (#greater) {
             let newRight = del right;
             switch right {
-              case (#node(#B, _, _, _)) {
-                balRight(left, xy, newRight)
+              case (#node(#B, _, _, _, _)) {
+                balRight(left, x1, y1, newRight)
               };
               case _ {
-                #node(#R, left, xy, newRight)
+                #node(#R, left, x1, y1, newRight)
               }
             }
           };
           case (#equal) {
-            y0 := ?xy.1;
+            y0 := ?y1;
             append(left, right)
           };
         }
@@ -900,14 +900,14 @@ module {
           case (#leaf) {
             tree
           };
-          case (#node(_, left, xy, right)) {
-            delNode(left, xy, right)
+          case (#node(_, left, x, y, right)) {
+            delNode(left, x, y, right)
           }
         };
       };
       switch (del(tree)) {
-        case (#node(#R, left, xy, right)) {
-          (#node(#B, left, xy, right), y0);
+        case (#node(#R, left, x, y, right)) {
+          (#node(#B, left, x, y, right), y0);
         };
         case other { (other, y0) };
       };

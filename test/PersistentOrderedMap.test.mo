@@ -33,7 +33,7 @@ func checkMap(rbMap : Map.Map<Nat, Text>) {
 func blackDepth(node : Map.Map<Nat, Text>) : Nat {
   switch node {
     case (#leaf) 0;
-    case (#node(color, left, (key, _), right)) {
+    case (#node(color, left, key, _, right)) {
       checkKey(left, func(x) { x < key });
       checkKey(right, func(x) { x > key });
       let leftBlacks = blackDepth(left);
@@ -57,14 +57,14 @@ func blackDepth(node : Map.Map<Nat, Text>) : Nat {
 func isRed(node : Map.Map<Nat, Text>) : Bool {
   switch node {
     case (#leaf) false;
-    case (#node(color, _, _, _)) color == #R
+    case (#node(color, _, _, _, _)) color == #R
   }
 };
 
 func checkKey(node : Map.Map<Nat, Text>, isValid : Nat -> Bool) {
   switch node {
     case (#leaf) {};
-    case (#node(_, _, (key, _), _)) {
+    case (#node(_, _, key, _, _)) {
       assert (isValid(key))
     }
   }
