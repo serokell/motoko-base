@@ -27,25 +27,16 @@ import List "List";
 import Nat "Nat";
 import O "Order";
 
-// TODO: a faster, more compact and less indirect representation would be:
-// type Map<K, V> = {
-//  #red : (Map<K, V>, K, V, Map<K, V>);
-//  #black : (Map<K, V>, K, V, Map<K, V>);
-//  #leaf
-//};
-// (this inlines the colors into the variant, flattens a tuple, and removes a (now) redundant option, for considerable heap savings.)
-// It would also make sense to maintain the size in a separate root for 0(1) access.
+// TODO: It would make sense to maintain the size in a separate root for 0(1) access.
 
 module {
-
-  /// Node color: Either red (`#R`) or black (`#B`).
-  public type Color = { #R; #B };
 
   /// Red-black tree of nodes with key-value entries, ordered by the keys.
   /// The keys have the generic type `K` and the values the generic type `V`.
   /// Leaves are considered implicitly black.
   public type Map<K, V> = {
-    #node : (Color, Map<K, V>, K, V, Map<K, V>);
+    #red : (Map<K, V>, K, V, Map<K, V>);
+    #black : (Map<K, V>, K, V, Map<K, V>);
     #leaf
   };
 
@@ -343,7 +334,11 @@ module {
           trees := ts;
           ?xy
         };
-        case (?(#tr(#node(_, l, x, y, r)), ts)) {
+        case (?(#tr(#red(l, x, y, r)), ts)) {
+          trees := ?(#tr(l), ?(#xy(x,y), ?(#tr(r), ts)));
+          next()
+        };
+        case (?(#tr(#black(l, x, y, r)), ts)) {
           trees := ?(#tr(l), ?(#xy(x,y), ?(#tr(r), ts)));
           next()
         }
@@ -364,7 +359,11 @@ module {
           trees := ts;
           ?xy
         };
-        case (?(#tr(#node(_, l, x, y, r)), ts)) {
+        case (?(#tr(#red(l, x, y, r)), ts)) {
+          trees := ?(#tr(r), ?(#xy(x, y), ?(#tr(l), ts)));
+          next()
+        };
+        case (?(#tr(#black(l, x, y, r)), ts)) {
           trees := ?(#tr(r), ?(#xy(x, y), ?(#tr(l), ts)));
           next()
         }
@@ -480,8 +479,11 @@ module {
     func mapRec(m : Map<K, V1>) : Map<K, V2> {
       switch m {
         case (#leaf) { #leaf };
-        case (#node(c, l, x, y, r)) {
-          #node(c, mapRec l, x, f(x, y), mapRec r) // TODO: try destination-passing style to avoid non tail-call recursion
+        case (#red(l, x, y, r)) {
+          #red(mapRec l, x, f(x, y), mapRec r) // TODO: try destination-passing style to avoid non tail-call recursion
+        };
+        case (#black(l, x, y, r)) {
+          #black(mapRec l, x, f(x, y), mapRec r)
         };
       }
     };
@@ -510,7 +512,10 @@ module {
   public func size<K, V>(t : Map<K, V>) : Nat {
     switch t {
       case (#leaf) { 0 };
-      case (#node(_, l, _, _, r)) {
+      case (#red(l, _, _, r)) {
+        size(l) + size(r) + 1
+      };
+      case (#black(l, _, _, r)) {
         size(l) + size(r) + 1
       }
     }
@@ -551,7 +556,12 @@ module {
   {
     switch (rbMap) {
       case (#leaf) { base };
-      case (#node(_, l, k, v, r)) {
+      case (#red(l, k, v, r)) {
+        let left = foldLeft(l, base, combine);
+        let middle = combine(k, v, left);
+        foldLeft(r, middle, combine)
+      };
+      case (#black(l, k, v, r)) {
         let left = foldLeft(l, base, combine);
         let middle = combine(k, v, left);
         foldLeft(r, middle, combine)
@@ -594,7 +604,12 @@ module {
   {
     switch (rbMap) {
       case (#leaf) { base };
-      case (#node(_, l, k, v, r)) {
+      case (#red(l, k, v, r)) {
+        let right = foldRight(r, base, combine);
+        let middle = combine(k, v, right);
+        foldRight(l, middle, combine)
+      };
+      case (#black(l, k, v, r)) {
         let right = foldRight(r, base, combine);
         let middle = combine(k, v, right);
         foldRight(l, middle, combine)
@@ -629,7 +644,14 @@ module {
     public func get<K, V>(t : Map<K, V>, compare : (K, K) -> O.Order, x0 : K) : ?V {
       switch t {
         case (#leaf) { null };
-        case (#node(_c, l, x1, y, r)) {
+        case (#red(l, x1, y, r)) {
+          switch (compare(x0, x1)) {
+            case (#less) { get(l, compare, x0) };
+            case (#equal) { ?y };
+            case (#greater) { get(r, compare, x0) }
+          }
+        };
+        case (#black(l, x1, y, r)) {
           switch (compare(x0, x1)) {
             case (#less) { get(l, compare, x0) };
             case (#equal) { ?y };
@@ -641,8 +663,8 @@ module {
 
     func redden<K, V>(t : Map<K, V>) : Map<K, V> {
       switch t {
-        case (#node (#B, l, x, y, r)) {
-          (#node (#R, l, x, y, r))
+        case (#black (l, x, y, r)) {
+          (#red (l, x, y, r))
         };
         case _ {
           Debug.trap "RBTree.red"
@@ -652,44 +674,40 @@ module {
 
     func lbalance<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (#node(#R, #node(#R, l1, x1, y1, r1), x2, y2, r2), r) {
-          #node(
-            #R,
-            #node(#B, l1, x1, y1, r1),
+        case (#red( #red(l1, x1, y1, r1), x2, y2, r2), r) {
+          #red(
+            #black(l1, x1, y1, r1),
             x2, y2,
-            #node(#B, r2, x0, y0, r))
+            #black(r2, x0, y0, r))
         };
-        case (#node(#R, l1, x1, y1, #node(#R, l2, x2, y2, r2)), r) {
-          #node(
-            #R,
-            #node(#B, l1, x1, y1, l2),
+        case (#red(l1, x1, y1, #red(l2, x2, y2, r2)), r) {
+          #red(
+            #black(l1, x1, y1, l2),
             x2, y2,
-            #node(#B, r2, x0, y0, r))
+            #black(r2, x0, y0, r))
         };
         case _ {
-          #node(#B, left, x0, y0, right)
+          #black(left, x0, y0, right)
         }
       }
     };
 
     func rbalance<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (l, #node(#R, l1, x1, y1, #node(#R, l2, x2, y2, r2))) {
-          #node(
-            #R,
-            #node(#B, l, x0, y0, l1),
+        case (l, #red(l1, x1, y1, #red(l2, x2, y2, r2))) {
+          #red(
+            #black(l, x0, y0, l1),
             x1, y1,
-            #node(#B, l2, x2, y2, r2))
+            #black(l2, x2, y2, r2))
         };
-        case (l, #node(#R, #node(#R, l1, x1, y1, r1), x2, y2, r2)) {
-          #node(
-            #R,
-            #node(#B, l, x0, y0, l1),
+        case (l, #red(#red(l1, x1, y1, r1), x2, y2, r2)) {
+          #red(
+            #black(l, x0, y0, l1),
             x1, y1,
-            #node(#B, r1, x2, y2, r2))
+            #black(r1, x2, y2, r2))
         };
         case _ {
-          #node(#B, left, x0, y0, right)
+          #black(left, x0, y0, right)
         };
       }
     };
@@ -707,9 +725,9 @@ module {
       func ins(tree : Map<K,V>) : Map<K,V> {
         switch tree {
           case (#leaf) {
-            #node(#R, #leaf, key,val, #leaf)
+            #red(#leaf, key,val, #leaf)
           };
-          case (#node(#B, left, x, y, right)) {
+          case (#black(left, x, y, right)) {
             switch (compare (key, x)) {
               case (#less) {
                 lbalance(ins left, x, y, right)
@@ -719,29 +737,29 @@ module {
               };
               case (#equal) {
                 let newVal = onClash({ new = val; old = y });
-                #node(#B, left, key, newVal, right)
+                #black(left, key, newVal, right)
               }
             }
           };
-          case (#node(#R, left, x, y, right)) {
+          case (#red(left, x, y, right)) {
             switch (compare (key, x)) {
               case (#less) {
-                #node(#R, ins left, x, y, right)
+                #red(ins left, x, y, right)
               };
               case (#greater) {
-                #node(#R, left, x, y, ins right)
+                #red(left, x, y, ins right)
               };
               case (#equal) {
                 let newVal = onClash { new = val; old = y };
-                #node(#R, left, key, newVal, right)
+                #red(left, key, newVal, right)
               }
             }
           }
         };
       };
       switch (ins m) {
-        case (#node(#R, left, x, y, right)) {
-          #node(#B, left, x, y, right);
+        case (#red(left, x, y, right)) {
+          #black(left, x, y, right);
         };
         case other { other };
       };
@@ -774,19 +792,18 @@ module {
 
     func balLeft<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (#node(#R, l1, x1, y1, r1), r) {
-          #node(
-            #R,
-            #node(#B, l1, x1, y1, r1),
+        case (#red(l1, x1, y1, r1), r) {
+          #red(
+            #black(l1, x1, y1, r1),
             x0, y0,
             r)
         };
-        case (_, #node(#B, l2, x2, y2, r2)) {
-          rbalance(left, x0, y0, #node(#R, l2, x2, y2, r2))
+        case (_, #black(l2, x2, y2, r2)) {
+          rbalance(left, x0, y0, #red(l2, x2, y2, r2))
         };
-        case (_, #node(#R, #node(#B, l2, x2, y2, r2), x3, y3, r3)) {
-          #node(#R,
-            #node(#B, left, x0, y0, l2),
+        case (_, #red(#black(l2, x2, y2, r2), x3, y3, r3)) {
+          #red(
+            #black(left, x0, y0, l2),
             x2, y2,
             rbalance(r2, x3, y3, redden r3))
         };
@@ -796,20 +813,20 @@ module {
 
     func balRight<K,V>(left : Map<K, V>, x0 : K, y0 : V, right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
-        case (l, #node(#R, l1, x1, y1, r1)) {
-          #node(#R,
+        case (l, #red(l1, x1, y1, r1)) {
+          #red(
             l,
             x0, y0,
-            #node(#B, l1, x1, y1, r1))
+            #black(l1, x1, y1, r1))
         };
-        case (#node(#B, l1, x1, y1, r1), r) {
-          lbalance(#node(#R, l1, x1, y1, r1), x0, y0, r);
+        case (#black(l1, x1, y1, r1), r) {
+          lbalance(#red(l1, x1, y1, r1), x0, y0, r);
         };
-        case (#node(#R, l1, x1, y1, #node(#B, l2, x2, y2, r2)), r3) {
-          #node(#R,
+        case (#red(l1, x1, y1, #black(l2, x2, y2, r2)), r3) {
+          #red(
             lbalance(redden l1, x1, y1, l2),
             x2, y2,
-            #node(#B, r2, x0, y0, r3))
+            #black(r2, x0, y0, r3))
         };
         case _ { Debug.trap "balRight" };
       }
@@ -819,40 +836,39 @@ module {
       switch (left, right) {
         case (#leaf,  _) { right };
         case (_,  #leaf) { left };
-        case (#node (#R, l1, x1, y1, r1),
-              #node (#R, l2, x2, y2, r2)) {
+        case (#red( l1, x1, y1, r1),
+              #red( l2, x2, y2, r2)) {
           switch (append (r1, l2)) {
-            case (#node (#R, l3, x3, y3, r3)) {
-              #node(
-                #R,
-                #node(#R, l1, x1, y1, l3),
+            case (#red( l3, x3, y3, r3)) {
+              #red(
+                #red(l1, x1, y1, l3),
                 x3, y3,
-                #node(#R, r3, x2, y2, r2))
+                #red(r3, x2, y2, r2))
             };
             case r1l2 {
-              #node(#R, l1, x1, y1, #node(#R, r1l2, x2, y2, r2))
+              #red(l1, x1, y1, #red(r1l2, x2, y2, r2))
             }
           }
         };
-        case (t1, #node(#R, l2, x2, y2, r2)) {
-          #node(#R, append(t1, l2), x2, y2, r2)
+        case (t1, #red(l2, x2, y2, r2)) {
+          #red(append(t1, l2), x2, y2, r2)
         };
-        case (#node(#R, l1, x1, y1, r1), t2) {
-          #node(#R, l1, x1, y1, append(r1, t2))
+        case (#red(l1, x1, y1, r1), t2) {
+          #red(l1, x1, y1, append(r1, t2))
         };
-        case (#node(#B, l1, x1, y1, r1), #node (#B, l2, x2, y2, r2)) {
+        case (#black(l1, x1, y1, r1), #black(l2, x2, y2, r2)) {
           switch (append (r1, l2)) {
-            case (#node (#R, l3, x3, y3, r3)) {
-              #node(#R,
-                #node(#B, l1, x1, y1, l3),
+            case (#red( l3, x3, y3, r3)) {
+              #red(
+                #black(l1, x1, y1, l3),
                 x3, y3,
-                #node(#B, r3, x2, y2, r2))
+                #black(r3, x2, y2, r2))
             };
             case r1l2 {
               balLeft (
                 l1,
                 x1, y1,
-                #node(#B, r1l2, x2, y2, r2)
+                #black(r1l2, x2, y2, r2)
               )
             }
           }
@@ -870,22 +886,22 @@ module {
           case (#less) {
             let newLeft = del left;
             switch left {
-              case (#node(#B, _, _, _, _)) {
+              case (#black(_, _, _, _)) {
                 balLeft(newLeft, x1, y1, right)
               };
               case _ {
-                #node(#R, newLeft, x1, y1, right)
+                #red(newLeft, x1, y1, right)
               }
             }
           };
           case (#greater) {
             let newRight = del right;
             switch right {
-              case (#node(#B, _, _, _, _)) {
+              case (#black(_, _, _, _)) {
                 balRight(left, x1, y1, newRight)
               };
               case _ {
-                #node(#R, left, x1, y1, newRight)
+                #red(left, x1, y1, newRight)
               }
             }
           };
@@ -900,14 +916,17 @@ module {
           case (#leaf) {
             tree
           };
-          case (#node(_, left, x, y, right)) {
+          case (#red(left, x, y, right)) {
+            delNode(left, x, y, right)
+          };
+          case (#black(left, x, y, right)) {
             delNode(left, x, y, right)
           }
         };
       };
       switch (del(tree)) {
-        case (#node(#R, left, x, y, right)) {
-          (#node(#B, left, x, y, right), y0);
+        case (#red(left, x, y, right)) {
+          (#black(left, x, y, right), y0);
         };
         case other { (other, y0) };
       };
