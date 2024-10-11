@@ -81,8 +81,13 @@ module {
     /// assuming that the `compare` function implements an `O(1)` comparison.
     ///
     /// Note: Creates `O(n * log(n))` temporary objects that will be collected as garbage.
-    public func fromIter<V>(i : I.Iter<(K,V)>) : Map<K, V>
-      = Internal.fromIter(i, compare);
+    public func fromIter<V>(i : I.Iter<(K,V)>) : Map<K, V> {
+      var map = #leaf : Map<K,V>;
+      for(val in i) {
+        map := put(map, val.0, val.1);
+      };
+      map
+    };
 
     /// Insert the value `value` with key `key` into map `rbMap`. Overwrites any existing entry with key `key`.
     /// Returns a modified map.
@@ -112,7 +117,7 @@ module {
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
     public func put<V>(rbMap : Map<K, V>, key : K, value : V) : Map<K, V>
-      = Internal.put(rbMap, compare, key, value);
+      = replace(rbMap, key, value).0;
 
     /// Insert the value `value` with key `key` into `rbMap`. Returns modified map and
     /// the previous value associated with key `key` or `null` if no such value exists.
@@ -147,8 +152,16 @@ module {
     /// assuming that the `compare` function implements an `O(1)` comparison.
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
-    public func replace<V>(rbMap : Map<K, V>, key : K, value : V) : (Map<K,V>, ?V)
-      = Internal.replace(rbMap, compare, key, value);
+    public func replace<V>(rbMap : Map<K, V>, key : K, value : V) : (Map<K,V>, ?V) {
+      var oldVal : ?V = null;
+      func onClash( clash : { old : V; new : V } ) : V
+      {
+        oldVal := ?clash.old;
+        clash.new
+      };
+      let res = Internal.insertWith(rbMap, compare, key, value, onClash);
+      (res, oldVal)
+    };
 
     /// Creates a new map by applying `f` to each entry in `rbMap`. For each entry
     /// `(k, v)` in the old map, if `f` evaluates to `null`, the entry is discarded.
@@ -182,8 +195,17 @@ module {
     /// assuming that the `compare` function implements an `O(1)` comparison.
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
-    public func mapFilter<V1, V2>(rbMap : Map<K, V1>, f : (K, V1) -> ?V2) : Map<K, V2>
-      = Internal.mapFilter(rbMap, compare, f);
+    public func mapFilter<V1, V2>(rbMap : Map<K, V1>, f : (K, V1) -> ?V2) : Map<K, V2> {
+      func combine(key : K, value1 : V1, acc : Map<K, V2>) : Map<K, V2> {
+        switch (f(key, value1)){
+          case null { acc };
+          case (?value2) {
+            put(acc, key, value2)
+          }
+        }
+      };
+      foldLeft(rbMap, #leaf, combine)
+    };
 
     /// Get the value associated with key `key` in the given `rbMap` if present and `null` otherwise.
     ///
@@ -208,8 +230,18 @@ module {
     /// assuming that the `compare` function implements an `O(1)` comparison.
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
-    public func get<V>(rbMap : Map<K, V>, key : K) : ?V
-      = Internal.get(rbMap, compare, key);
+    public func get<V>(rbMap : Map<K, V>, key : K) : ?V {
+      switch rbMap {
+        case (#leaf) { null };
+        case (#node(_c, l, xy, r)) {
+          switch (compare(key, xy.0)) {
+            case (#less) { get(l, key) };
+            case (#equal) { ?xy.1 };
+            case (#greater) { get(r, key) }
+          }
+        }
+      }
+    };
 
     /// Deletes the entry with the key `key` from the `rbMap`. Has no effect if `key` is not
     /// present in the map. Returns modified map.
@@ -236,7 +268,7 @@ module {
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
     public func delete<V>(rbMap : Map<K, V>, key : K) : Map<K, V>
-      = Internal.delete(rbMap, compare, key);
+      = remove(rbMap, key).0;
 
     /// Deletes the entry with the key `key`. Returns modified map and the
     /// previous value associated with key `key` or `null` if no such value exists.
@@ -271,8 +303,55 @@ module {
     /// assuming that the `compare` function implements an `O(1)` comparison.
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
-    public func remove<V>(rbMap : Map<K, V>, key : K) : (Map<K,V>, ?V)
-      = Internal.remove(rbMap, compare, key);
+    public func remove<V>(rbMap : Map<K, V>, key : K) : (Map<K,V>, ?V){
+      var y0 : ?V = null;
+      func delNode(left : Map<K,V>, xy : (K, V), right : Map<K,V>) : Map<K,V> {
+        switch (compare (key, xy.0)) {
+          case (#less) {
+            let newLeft = del left;
+            switch left {
+              case (#node(#B, _, _, _)) {
+                Internal.balLeft(newLeft, xy, right)
+              };
+              case _ {
+                #node(#R, newLeft, xy, right)
+              }
+            }
+          };
+          case (#greater) {
+            let newRight = del right;
+            switch right {
+              case (#node(#B, _, _, _)) {
+                Internal.balRight(left, xy, newRight)
+              };
+              case _ {
+                #node(#R, left, xy, newRight)
+              }
+            }
+          };
+          case (#equal) {
+            y0 := ?xy.1;
+            Internal.append(left, right)
+          };
+        }
+      };
+      func del(tree : Map<K,V>) : Map<K,V> {
+        switch tree {
+          case (#leaf) {
+            tree
+          };
+          case (#node(_, left, xy, right)) {
+            delNode(left, xy, right)
+          }
+        };
+      };
+      switch (del(rbMap)) {
+        case (#node(#R, left, xy, right)) {
+          (#node(#B, left, xy, right), y0);
+        };
+        case other { (other, y0) };
+      };
+    };
 
   };
 
@@ -696,7 +775,7 @@ module {
 
     type ClashResolver<A> = { old : A; new : A } -> A;
 
-    func insertWith<K, V> (
+    public func insertWith<K, V> (
       m : Map<K, V>,
       compare : (K, K) -> O.Order,
       key : K,
@@ -772,7 +851,7 @@ module {
     ) : Map<K, V> = replace(m, compare, key, val).0;
 
 
-    func balLeft<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
+    public func balLeft<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
         case (#node(#R, l1, xy1, r1), r) {
           #node(
@@ -794,7 +873,7 @@ module {
       }
     };
 
-    func balRight<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
+    public func balRight<K,V>(left : Map<K, V>, xy : (K,V), right : Map<K, V>) : Map<K,V> {
       switch (left, right) {
         case (l, #node(#R, l1, xy1, r1)) {
           #node(#R,
@@ -815,7 +894,7 @@ module {
       }
     };
 
-    func append<K,V>(left : Map<K, V>, right: Map<K, V>) : Map<K, V> {
+    public func append<K,V>(left : Map<K, V>, right: Map<K, V>) : Map<K, V> {
       switch (left, right) {
         case (#leaf,  _) { right };
         case (_,  #leaf) { left };
