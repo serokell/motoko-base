@@ -561,18 +561,15 @@ module {
     combine : (Key, Value, Accum) -> Accum
   ) : Accum
   {
+    func goInside(l : Map<Key, Value>, k : Key, v : Value, r : Map<Key, Value>) : Accum {
+      let left = foldLeft(l, base, combine);
+      let middle = combine(k, v, left);
+      foldLeft(r, middle, combine)
+    };
     switch (rbMap) {
       case (#leaf) { base };
-      case (#red(l, (k, v), r)) {
-        let left = foldLeft(l, base, combine);
-        let middle = combine(k, v, left);
-        foldLeft(r, middle, combine)
-      };
-      case (#black(l, (k, v), r)) {
-        let left = foldLeft(l, base, combine);
-        let middle = combine(k, v, left);
-        foldLeft(r, middle, combine)
-      }
+      case (#red(l, (k, v), r)) { goInside(l, k, v, r) };
+      case (#black(l, (k, v), r)) { goInside(l, k, v, r) }
     }
   };
 
@@ -609,18 +606,15 @@ module {
     combine : (Key, Value, Accum) -> Accum
   ) : Accum
   {
+    func goInside(l : Map<Key, Value>, k : Key, v : Value, r : Map<Key, Value>) : Accum {
+        let right = foldRight(r, base, combine);
+        let middle = combine(k, v, right);
+        foldRight(l, middle, combine)
+    };
     switch (rbMap) {
       case (#leaf) { base };
-      case (#red(l, (k, v), r)) {
-        let right = foldRight(r, base, combine);
-        let middle = combine(k, v, right);
-        foldRight(l, middle, combine)
-      };
-      case (#black(l, (k, v), r)) {
-        let right = foldRight(r, base, combine);
-        let middle = combine(k, v, right);
-        foldRight(l, middle, combine)
-      }
+      case (#red(l, (k, v), r)) { goInside(l, k, v, r) };
+      case (#black(l, (k, v), r)) { goInside(l, k, v, r) }
     }
   };
 
@@ -649,22 +643,17 @@ module {
     };
 
     public func get<K, V>(t : Map<K, V>, compare : (K, K) -> O.Order, x : K) : ?V {
+      func goInside(l : Map<K, V>, xy : (K, V), r : Map<K, V>) : ?V {
+        switch (compare(x, xy.0)) {
+            case (#less) { get(l, compare, x) };
+            case (#equal) { ?xy.1 };
+            case (#greater) { get(r, compare, x) }
+          }
+      };
       switch t {
         case (#leaf) { null };
-        case (#red(l, xy, r)) {
-          switch (compare(x, xy.0)) {
-            case (#less) { get(l, compare, x) };
-            case (#equal) { ?xy.1 };
-            case (#greater) { get(r, compare, x) }
-          }
-        };
-        case (#black(l, xy, r)) {
-          switch (compare(x, xy.0)) {
-            case (#less) { get(l, compare, x) };
-            case (#equal) { ?xy.1 };
-            case (#greater) { get(r, compare, x) }
-          }
-        }
+        case (#red(l, xy, r)) { goInside(l, xy, r) };
+        case (#black(l, xy, r)) { goInside(l, xy, r) }
       }
     };
 
