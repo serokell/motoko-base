@@ -30,40 +30,42 @@ func checkSet(rbSet : Set.Set<Nat>) {
 };
 
 func blackDepth(node : Set.Set<Nat>) : Nat {
+  func checkNode(left : Set.Set<Nat>, elem : Nat, right : Set.Set<Nat>) : Nat {
+    checkElem(left, func(x) { x < elem });
+    checkElem(right, func(x) { x > elem });
+    let leftBlacks = blackDepth(left);
+    let rightBlacks = blackDepth(right);
+    assert (leftBlacks == rightBlacks);
+    leftBlacks
+  };
   switch node {
     case (#leaf) 0;
-    case (#node(color, _, left, x1, right)) {
-      checkElem(left, func(x) { x < x1 });
-      checkElem(right, func(x) { x > x1 });
-      let leftBlacks = blackDepth(left);
-      let rightBlacks = blackDepth(right);
-      assert (leftBlacks == rightBlacks);
-      switch color {
-        case (#R) {
-          assert (not isRed(left));
-          assert (not isRed(right));
-          leftBlacks
-        };
-        case (#B) {
-          leftBlacks + 1
-        }
-      }
+    case (#red(_, left, x, right)) {
+      let leftBlacks = checkNode(left, x, right);
+      assert (not isRed(left));
+      assert (not isRed(right));
+      leftBlacks
+    };
+    case (#black(_, left, x, right)) {
+      checkNode(left, x, right) + 1
     }
-  }
+  };
 };
-
 
 func isRed(node : Set.Set<Nat>) : Bool {
   switch node {
-    case (#leaf) false;
-    case (#node(color, _, _, _, _)) color == #R
+    case (#red(_, _, _, _)) true;
+    case _ false;
   }
 };
 
 func checkElem(node : Set.Set<Nat>, isValid : Nat -> Bool) {
   switch node {
     case (#leaf) {};
-    case (#node(_, _, _, elem, _)) {
+    case (#black(_, _, elem, _)) {
+      assert (isValid(elem))
+    };
+    case (#red(_, _, elem, _)) {
       assert (isValid(elem))
     }
   }
