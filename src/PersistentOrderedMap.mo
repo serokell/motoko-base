@@ -468,13 +468,13 @@ module {
   public func map<K, V1, V2>(rbMap : Map<K, V1>, f : (K, V1) -> V2) : Map<K, V2> {
     func mapRec(m : Map<K, V1>) : Map<K, V2> {
       switch m {
-        case (#leaf) { #leaf };
         case (#red(l, xy, r)) {
           #red(mapRec l, (xy.0, f xy), mapRec r)
         };
         case (#black(l, xy, r)) {
           #black(mapRec l, (xy.0, f xy), mapRec r)
         };
+        case _ { #leaf };
       }
     };
     mapRec(rbMap)
@@ -507,7 +507,7 @@ module {
       case (#black(l, _, r)) {
         size(l) + size(r) + 1
       };
-      case (#leaf) { 0 }
+      case _ { 0 }
     }
   };
 
@@ -545,7 +545,6 @@ module {
   ) : Accum
   {
     switch (rbMap) {
-      case (#leaf) { base };
       case (#red(l, (k, v), r)) {
         let left = foldLeft(l, base, combine);
         let middle = combine(k, v, left);
@@ -555,7 +554,8 @@ module {
         let left = foldLeft(l, base, combine);
         let middle = combine(k, v, left);
         foldLeft(r, middle, combine)
-      }
+      };
+      case _ { base };
     }
   };
 
@@ -593,7 +593,6 @@ module {
   ) : Accum
   {
     switch (rbMap) {
-      case (#leaf) { base };
       case (#red(l, (k, v), r)) {
         let right = foldRight(r, base, combine);
         let middle = combine(k, v, right);
@@ -603,7 +602,8 @@ module {
         let right = foldRight(r, base, combine);
         let middle = combine(k, v, right);
         foldRight(l, middle, combine)
-      }
+      };
+      case _ { base };
     }
   };
 
@@ -647,7 +647,7 @@ module {
             case (#greater) { get(r, compare, x) }
           }
         };
-        case (#leaf) { null }
+        case _ { null }
       }
     };
 
@@ -742,7 +742,7 @@ module {
               }
             }
           };
-          case (#leaf) {
+          case _ {
             #red(#leaf, (key,val), #leaf)
           }
         };
@@ -909,7 +909,7 @@ module {
           case (#black(left, xy, right)) {
             delNode(left, xy, right)
           };
-          case (#leaf) {
+          case _ {
             tree
           }
         };
