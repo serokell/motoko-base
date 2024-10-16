@@ -501,13 +501,13 @@ module {
   /// where `n` denotes the number of key-value entries stored in the tree.
   public func size<K, V>(t : Map<K, V>) : Nat {
     switch t {
-      case (#leaf) { 0 };
       case (#red(l, _, r)) {
         size(l) + size(r) + 1
       };
       case (#black(l, _, r)) {
         size(l) + size(r) + 1
-      }
+      };
+      case (#leaf) { 0 }
     }
   };
 
@@ -633,7 +633,6 @@ module {
 
     public func get<K, V>(t : Map<K, V>, compare : (K, K) -> O.Order, x : K) : ?V {
       switch t {
-        case (#leaf) { null };
         case (#red(l, xy, r)) {
           switch (compare(x, xy.0)) {
             case (#less) { get(l, compare, x) };
@@ -647,7 +646,8 @@ module {
             case (#equal) { ?xy.1 };
             case (#greater) { get(r, compare, x) }
           }
-        }
+        };
+        case (#leaf) { null }
       }
     };
 
@@ -714,9 +714,6 @@ module {
     : Map<K, V>{
       func ins(tree : Map<K,V>) : Map<K,V> {
         switch tree {
-          case (#leaf) {
-            #red(#leaf, (key,val), #leaf)
-          };
           case (#black(left, xy, right)) {
             switch (compare (key, xy.0)) {
               case (#less) {
@@ -744,6 +741,9 @@ module {
                 #red(left, (key,newVal), right)
               }
             }
+          };
+          case (#leaf) {
+            #red(#leaf, (key,val), #leaf)
           }
         };
       };
@@ -903,14 +903,14 @@ module {
       };
       func del(tree : Map<K,V>) : Map<K,V> {
         switch tree {
-          case (#leaf) {
-            tree
-          };
           case (#red(left, xy, right)) {
             delNode(left, xy, right)
           };
           case (#black(left, xy, right)) {
             delNode(left, xy, right)
+          };
+          case (#leaf) {
+            tree
           }
         };
       };
