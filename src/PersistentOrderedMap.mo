@@ -349,11 +349,7 @@ module {
             trees := ts;
             ?xy
           };
-          case (?(#tr(#red(l, xy, r)), ts)) {
-            trees := mapTraverser(l, xy, r, ts);
-            next()
-          };
-          case (?(#tr(#black(l, xy, r)), ts)) {
+          case (?(#tr(#red(l, xy, r) or #black(l, xy, r)), ts)) {
             trees := mapTraverser(l, xy, r, ts);
             next()
           }
@@ -501,10 +497,7 @@ module {
   /// where `n` denotes the number of key-value entries stored in the tree.
   public func size<K, V>(t : Map<K, V>) : Nat {
     switch t {
-      case (#red(l, _, r)) {
-        size(l) + size(r) + 1
-      };
-      case (#black(l, _, r)) {
+      case (#red(l, _, r) or #black(l, _, r)) {
         size(l) + size(r) + 1
       };
       case (#leaf) { 0 }
@@ -546,12 +539,7 @@ module {
   {
     switch (rbMap) {
       case (#leaf) { base };
-      case (#red(l, (k, v), r)) {
-        let left = foldLeft(l, base, combine);
-        let middle = combine(k, v, left);
-        foldLeft(r, middle, combine)
-      };
-      case (#black(l, (k, v), r)) {
+      case (#red(l, (k, v), r) or #black(l, (k, v), r)) {
         let left = foldLeft(l, base, combine);
         let middle = combine(k, v, left);
         foldLeft(r, middle, combine)
@@ -594,12 +582,7 @@ module {
   {
     switch (rbMap) {
       case (#leaf) { base };
-      case (#red(l, (k, v), r)) {
-        let right = foldRight(r, base, combine);
-        let middle = combine(k, v, right);
-        foldRight(l, middle, combine)
-      };
-      case (#black(l, (k, v), r)) {
+      case (#red(l, (k, v), r) or #black(l, (k, v), r)) {
         let right = foldRight(r, base, combine);
         let middle = combine(k, v, right);
         foldRight(l, middle, combine)
@@ -633,14 +616,7 @@ module {
 
     public func get<K, V>(t : Map<K, V>, compare : (K, K) -> O.Order, x : K) : ?V {
       switch t {
-        case (#red(l, xy, r)) {
-          switch (compare(x, xy.0)) {
-            case (#less) { get(l, compare, x) };
-            case (#equal) { ?xy.1 };
-            case (#greater) { get(r, compare, x) }
-          }
-        };
-        case (#black(l, xy, r)) {
+        case (#red(l, xy, r) or #black(l, xy, r)) {
           switch (compare(x, xy.0)) {
             case (#less) { get(l, compare, x) };
             case (#equal) { ?xy.1 };
