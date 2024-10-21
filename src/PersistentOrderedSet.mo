@@ -939,7 +939,7 @@ module {
           };
           case (#node (#B, rl, rx, rr)) {
             let (llbh, ll) = joinL((lbh, l), x, bhFromParent(rbh, rl));
-            (bhFromChild(llbh, ll), lbalance (ll, rx, rr))
+            (bhFromChild(llbh, ll), balLeft (ll, rx, rr))
           };
           case _ { Debug.trap "joinL" };
         }
@@ -956,7 +956,7 @@ module {
           };
           case (#node (#B, ll, lx, lr)) {
             let (rrbh, rr) = joinR (bhFromParent(lbh, lr), x, (rbh, r));
-            (bhFromChild(rrbh, rr), rbalance (ll, lx, rr))
+            (bhFromChild(rrbh, rr), balRight (ll, lx, rr))
           };
           case _ { Debug.trap "joinR" };
         }
