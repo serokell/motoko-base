@@ -930,7 +930,7 @@ module {
     };
 
     public func joinL<T>(bhp : Nat, (lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
-      if (rbh <= lbh) { (bhFromChild(rbh, l), (#node (#R, l, x, r))) }
+      if (rbh <= lbh) { (bhp, (#node (#R, l, x, r))) }
       else {
         switch r {
           case (#node (#R, rl, rx, rr)) {
@@ -947,7 +947,7 @@ module {
     };
 
     public func joinR<T>(bhp : Nat, (lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
-      if (lbh <= rbh) { (bhFromChild(lbh, r), (#node (#R, l, x, r))) } // bhp?
+      if (lbh <= rbh) { (bhp, (#node (#R, l, x, r))) }
       else {
         switch l {
           case (#node (#R, ll, lx, lr)) {
