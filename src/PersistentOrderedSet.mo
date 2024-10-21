@@ -935,7 +935,7 @@ module {
         switch r {
           case (#node (#R, rl, rx, rr)) {
             let (llbh, ll) = joinL((lbh, l), x, bhFromParent(rbh, rl));
-            (llbh, (#node (#R, ll , rx, rr)))
+            (bhFromChild(llbh, ll), (#node (#R, ll , rx, rr)))
           };
           case (#node (#B, rl, rx, rr)) {
             let (llbh, ll) = joinL((lbh, l), x, bhFromParent(rbh, rl));
@@ -952,7 +952,7 @@ module {
         switch l {
           case (#node (#R, ll, lx, lr)) {
             let (rrbh, rr) = joinR (bhFromParent(lbh, lr), x, (rbh, r));
-            (rrbh, (#node (#R, ll, lx, rr)))
+            (bhFromChild(rrbh, rr), (#node (#R, ll, lx, rr)))
           };
           case (#node (#B, ll, lx, lr)) {
             let (rrbh, rr) = joinR (bhFromParent(lbh, lr), x, (rbh, r));
