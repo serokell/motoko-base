@@ -184,7 +184,7 @@ module {
           case (rbSet, #leaf) { (bh1, rbSet) };
           case (#node (_, l1, x, r1), _) {
             let (l2, _, r2) = Internal.split(x, (bh2, s2), compare);
-            Internal.join(f(Internal.bhFromParent(bh1, l1), l2), x, f(Internal.bhFromParent(bh1, r1), r2))
+            Internal.join(bh1, f(Internal.bhFromParent(bh1, l1), l2), x, f(Internal.bhFromParent(bh1, r1), r2))
           };
         };
       };
@@ -229,8 +229,8 @@ module {
             let (l2, b2, r2) = Internal.split(x, (bh2, s2), compare);
             let l = f(Internal.bhFromParent(bh1, l1), l2);
             let r = f(Internal.bhFromParent(bh1, r1), r2);
-            if b2 { Internal.join (l, x, r) }
-            else { Internal.join2(l, r) };
+            if b2 { Internal.join (bh1, l, x, r) }
+            else { Internal.join2(bh1, l, r) };
           };
         };
       };
@@ -273,7 +273,7 @@ module {
           case (rbSet, #leaf) { (bh1, rbSet) };
           case (_, (#node(_, l2, x, r2))) {
             let (l1, _, r1) = Internal.split(x, (bh1, s1), compare);
-            Internal.join2(f(l1, Internal.bhFromParent(bh2, l2)), f(r1, Internal.bhFromParent(bh2, r2)));
+            Internal.join2(bh1, f(l1, Internal.bhFromParent(bh2, l2)), f(r1, Internal.bhFromParent(bh2, r2)));
           }
         }
       };
@@ -929,34 +929,34 @@ module {
       }
     };
 
-    public func joinL<T>((lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
+    public func joinL<T>(bhp : Nat, (lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
       if (rbh <= lbh) { (bhFromChild(rbh, l), (#node (#R, l, x, r))) }
       else {
         switch r {
           case (#node (#R, rl, rx, rr)) {
-            let (llbh, ll) = joinL((lbh, l), x, bhFromParent(rbh, rl));
-            (bhFromChild(llbh, ll), (#node (#R, ll , rx, rr)))
+                 let (llbh, ll) = joinL(bhp, (lbh, l), x, bhFromParent(rbh, rl));
+            (bhp, (#node (#R, ll , rx, rr)))
           };
           case (#node (#B, rl, rx, rr)) {
-            let (llbh, ll) = joinL((lbh, l), x, bhFromParent(rbh, rl));
-            (bhFromChild(llbh, ll), balLeft (ll, rx, rr))
+                 let (llbh, ll) = joinL(bhp, (lbh, l), x, bhFromParent(rbh, rl));
+            (bhp, lbalance (ll, rx, rr))
           };
           case _ { Debug.trap "joinL" };
         }
       }
     };
 
-    public func joinR<T>((lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
-      if (lbh <= rbh) { (bhFromChild(lbh, r), (#node (#R, l, x, r))) }
+    public func joinR<T>(bhp : Nat, (lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
+      if (lbh <= rbh) { (bhFromChild(lbh, r), (#node (#R, l, x, r))) } // bhp?
       else {
         switch l {
           case (#node (#R, ll, lx, lr)) {
-            let (rrbh, rr) = joinR (bhFromParent(lbh, lr), x, (rbh, r));
-            (bhFromChild(rrbh, rr), (#node (#R, ll, lx, rr)))
+                 let (rrbh, rr) = joinR (bhp, bhFromParent(lbh, lr), x, (rbh, r));
+            (bhp, (#node (#R, ll, lx, rr)))
           };
           case (#node (#B, ll, lx, lr)) {
-            let (rrbh, rr) = joinR (bhFromParent(lbh, lr), x, (rbh, r));
-            (bhFromChild(rrbh, rr), balRight (ll, lx, rr))
+                 let (rrbh, rr) = joinR (bhp, bhFromParent(lbh, lr), x, (rbh, r));
+            (bhp, rbalance (ll, lx, rr))
           };
           case _ { Debug.trap "joinR" };
         }
@@ -976,33 +976,33 @@ module {
         case (#node(_, #leaf, x, r)) { (x, (bhFromParent(bh, r))) };
         case (#node(_, l, x, r)) {
           let (m, l2) = splitMin (bhFromParent(bh, l));
-          (m, join(l2, x, bhFromParent(bh, r)))
+          (m, join(bh, l2, x, bhFromParent(bh, r)))
         };
       }
     };
 
     // Joins an element and two trees.
     // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
-    public func join<T>((lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
+    public func join<T>(bhp : Nat, (lbh, l) : (Nat, Set<T>), x : T, (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
       if (rbh < lbh) {
-        let (bh, set) = Internal.joinR((lbh, l), x, (rbh, r));
+        let (bh, set) = Internal.joinR(bhp, (lbh, l), x, (rbh, r));
         return (bh, Internal.paint(#B, set))
       };
       if (lbh < rbh) {
-        let (bh, set) = Internal.joinL((lbh, l), x, (rbh, r));
+        let (bh, set) = Internal.joinL(bhp, (lbh, l), x, (rbh, r));
         return (bh, Internal.paint(#B, set))
       };
-      return (bhFromChild(lbh, l), (#node (#B, l, x, r)))
+      return (bhp, (#node (#B, l, x, r)))
     };
 
     // Joins two trees.
     // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
-    public func join2<T>((lbh, l) : (Nat, Set<T>), (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
+    public func join2<T>(bhp : Nat, (lbh, l) : (Nat, Set<T>), (rbh, r) : (Nat, Set<T>)) : (Nat, Set<T>) {
       switch r {
         case (#leaf) { (lbh, l) };
         case _ {
           let (m, r2) = Internal.splitMin ((rbh, r));
-          join((lbh, l), m, r2)
+          join(bhp, (lbh, l), m, r2)
         };
       }
     };
@@ -1018,12 +1018,12 @@ module {
           switch (compare(x, x1)) {
             case (#less) {
               let (l1, b, l2) = split(x, bhFromParent(bh, l), compare);
-              (l1, b, join(l2, x1, bhFromParent(bh, r)))
+              (l1, b, join(bh, l2, x1, bhFromParent(bh, r)))
             };
             case (#equal) { (bhFromParent(bh, l), true, bhFromParent(bh, r)) };
             case (#greater) {
               let (r1, b, r2) = split(x, (bh, r), compare);
-              (join(bhFromParent(bh, l), x1, r1), b, r2)
+              (join(bh, bhFromParent(bh, l), x1, r1), b, r2)
             };
           };
         };
