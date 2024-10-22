@@ -25,11 +25,11 @@ class SetMatcher(expected : [Nat]) : M.Matcher<Set.Set<Nat>> {
 
 let natSetOps = Set.SetOps<Nat>(Nat.compare);
 
-func checkSet(rbSet : Set.Set<Nat>) {
+func checkSet((_, rbSet) : Set.Set<Nat>) {
   ignore blackDepth(rbSet)
 };
 
-func blackDepth(node : Set.Set<Nat>) : Nat {
+func blackDepth(node : Set.S<Nat>) : Nat {
   switch node {
     case (#leaf) 0;
     case (#node(color, left, x1, right)) {
@@ -53,14 +53,14 @@ func blackDepth(node : Set.Set<Nat>) : Nat {
 };
 
 
-func isRed(node : Set.Set<Nat>) : Bool {
+func isRed(node : Set.S<Nat>) : Bool {
   switch node {
     case (#leaf) false;
     case (#node(color, _, _, _)) color == #R
   }
 };
 
-func checkElem(node : Set.Set<Nat>, isValid : Nat -> Bool) {
+func checkElem(node : Set.S<Nat>, isValid : Nat -> Bool) {
   switch node {
     case (#leaf) {};
     case (#node(_, _, elem, _)) {
