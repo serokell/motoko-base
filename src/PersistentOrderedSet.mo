@@ -179,7 +179,8 @@ module {
     /// Runtime: `O(m * log(n/m + 1))`.
     /// Space: `O(m * log(n/m + 1))`, where `m` and `n` denote the number of elements
     /// in the sets, and `m <= n`.
-    public func union(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
+    public func union(s1 : Set<T>, s2 : Set<T>) : Set<T> {
+      func f(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
       switch (rbSet1, rbSet2) {
         case (#leaf, rbSet) { rbSet };
         case (rbSet, #leaf) { rbSet };
@@ -188,6 +189,11 @@ module {
           Internal.join(union(l1, l2), x, union(r1, r2))
         };
       };
+      };
+
+      let rbSetRecalc1 = Internal.recalcBH s1;
+      let rbSetRecalc2 = Internal.recalcBH s2;
+      f ( rbSetRecalc1, rbSetRecalc2);
     };
 
     /// [Set intersection](https://en.wikipedia.org/wiki/Intersection_(set_theory)) operation.
@@ -210,7 +216,8 @@ module {
     /// Runtime: `O(m * log(n/m + 1))`.
     /// Space: `O(m * log(n/m + 1))`, where `m` and `n` denote the number of elements
     /// in the sets, and `m <= n`.
-    public func intersect(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
+    public func intersect(s1 : Set<T>, s2 : Set<T>) : Set<T> {
+      func f(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
       switch (rbSet1, rbSet2) {
         case (#leaf, _) { #leaf };
         case (_, #leaf) { #leaf };
@@ -222,6 +229,10 @@ module {
           else { Internal.join2(l, r) };
         };
       };
+    };
+      let rbSetRecalc1 = Internal.recalcBH s1;
+      let rbSetRecalc2 = Internal.recalcBH s2;
+      f ( rbSetRecalc1, rbSetRecalc2);
     };
 
     /// [Set difference](https://en.wikipedia.org/wiki/Difference_(set_theory)).
@@ -244,7 +255,8 @@ module {
     /// Runtime: `O(m * log(n/m + 1))`.
     /// Space: `O(m * log(n/m + 1))`, where `m` and `n` denote the number of elements
     /// in the sets, and `m <= n`.
-    public func diff(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
+    public func diff(s1 : Set<T>, s2 : Set<T>) : Set<T> {
+      func f(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
       switch (rbSet1, rbSet2) {
         case (#leaf, _) { #leaf };
         case (rbSet, #leaf) { rbSet };
@@ -252,7 +264,11 @@ module {
           let (l1, _, r1) = Internal.split(x, rbSet1, compare);
           Internal.join2(diff(l1, l2), diff(r1, r2));
         }
-      }
+      };
+      };
+      let rbSetRecalc1 = Internal.recalcBH s1;
+      let rbSetRecalc2 = Internal.recalcBH s2;
+      f ( rbSetRecalc1, rbSetRecalc2);
     };
 
     /// Creates a new Set by applying `f` to each entry in `rbSet`. Each element
@@ -879,6 +895,33 @@ module {
       };
     };
 
+    public func blackHeightOld<T> (rbSet : Set<T>) : Nat {
+      func f (node : Set<T>, acc : Nat) : Nat {
+        switch node {
+          case (#leaf) { acc };
+          case (#node (#R, _, l1, _, _)) { f(l1, acc) };
+          case (#node (#B, _, l1, _, _)) { f(l1, acc + 1) }
+        }
+      };
+      f (rbSet, 0)
+    };
+
+    public func recalcBH<T> (rbSet : Set<T>) : Set<T> {
+      let bh = blackHeightOld(rbSet);
+
+      func f (bh : Nat, s : Set<T>) : Set<T> {
+        switch s {
+          case (#leaf) { #leaf };
+          case (#node (#R, _, l, x, r)) { (#node (#R, bh, f(bh, l), x, f(bh, r))) };
+          case (#node (#B, _, l, x, r)) {
+                 // let bh1 = bh - 1;
+                 (#node (#B, bh , f(bh, l), x, f(bh, r)))
+               }
+        }
+      };
+      f (bh, rbSet);
+    };
+    
     public func blackHeight<T> (rbSet : Set<T>) : Nat {
         switch rbSet {
           case (#leaf) { 0 };
