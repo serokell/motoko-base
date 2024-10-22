@@ -32,10 +32,12 @@ module {
 
   /// Red-black tree of nodes with ordered set elements.
   /// Leaves are considered implicitly black.
-  public type Set<T> = {
-    #node : (Color, Set<T>, T, Set<T>);
+  public type S<T> = {
+    #node : (Color, S<T>, T, S<T>);
     #leaf
   };
+
+  public type Set <T> = (Nat, S<T>);
 
   /// Opertaions on `Set`, that require a comparator.
   ///
@@ -70,7 +72,7 @@ module {
     ///
     /// Note: Creates `O(n * log(n))` temporary objects that will be collected as garbage.
     public func fromIter(i : I.Iter<T>) : Set<T> {
-      var set = #leaf : Set<T>;
+      var set = (0, #leaf) : Set<T>;
       for(val in i) {
         set := put(set, val);
       };
@@ -178,14 +180,14 @@ module {
     /// Space: `O(m * log(n/m + 1))`, where `m` and `n` denote the number of elements
     /// in the sets, and `m <= n`.
     public func union(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
-      switch (rbSet1, rbSet2) {
-        case (#leaf, rbSet) { rbSet };
-        case (rbSet, #leaf) { rbSet };
-        case (#node (_, l1, x, r1), _) {
-          let (l2, _, r2) = Internal.split(x, rbSet2, compare);
-          Internal.join(union(l1, l2), x, union(r1, r2))
-        };
-      };
+      if ( size rbSet1 < size rbSet2) {
+        foldLeft(rbSet1, rbSet2,
+                 func (elem : T, acc : Set<T>) : Set<T> { put(acc, elem) })
+      }
+      else {
+        foldLeft(rbSet2, rbSet1,
+                 func (elem : T, acc : Set<T>) : Set<T> { put(acc, elem) })}
+
     };
 
     /// [Set intersection](https://en.wikipedia.org/wiki/Intersection_(set_theory)) operation.
@@ -209,17 +211,20 @@ module {
     /// Space: `O(m * log(n/m + 1))`, where `m` and `n` denote the number of elements
     /// in the sets, and `m <= n`.
     public func intersect(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
-      switch (rbSet1, rbSet2) {
-        case (#leaf, _) { #leaf };
-        case (_, #leaf) { #leaf };
-        case (#node (_, l1, x, r1), _) {
-          let (l2, b2, r2) = Internal.split(x, rbSet2, compare);
-          let l = intersect(l1, l2);
-          let r = intersect(r1, r2);
-          if b2 { Internal.join (l, x, r) }
-          else { Internal.join2(l, r) };
-        };
-      };
+      if (size rbSet1 < size rbSet2) {
+        foldLeft(rbSet1, (0, #leaf),
+          func (elem : T, acc : Set<T>) : Set<T> {
+            if (contains(rbSet2, elem)) { put(acc, elem)} else {acc}
+          }
+        )
+      }
+      else {
+        foldLeft(rbSet2, (0, #leaf),
+          func (elem : T, acc : Set<T>) : Set<T> {
+            if (contains(rbSet1, elem)) { put(acc, elem)} else {acc}
+          }
+        )
+      }
     };
 
     /// [Set difference](https://en.wikipedia.org/wiki/Difference_(set_theory)).
@@ -243,13 +248,16 @@ module {
     /// Space: `O(m * log(n/m + 1))`, where `m` and `n` denote the number of elements
     /// in the sets, and `m <= n`.
     public func diff(rbSet1 : Set<T>, rbSet2 : Set<T>) : Set<T> {
-      switch (rbSet1, rbSet2) {
-        case (#leaf, _) { #leaf };
-        case (rbSet, #leaf) { rbSet };
-        case (_, (#node(_, l2, x, r2))) {
-          let (l1, _, r1) = Internal.split(x, rbSet1, compare);
-          Internal.join2(diff(l1, l2), diff(r1, r2));
-        }
+      // foldLeft(rbSet1, rbSet2, func (elem : T, acc : Set<T>) { delete(acc, elem) })
+      if (size rbSet1 < size rbSet2) {
+        foldLeft(rbSet1, (0, #leaf),
+          func (elem : T, acc : Set<T>) : Set<T> { if (contains(rbSet2, elem)) {acc} else {put(acc, elem)}}
+        )
+      }
+      else {
+        foldLeft(rbSet2, rbSet1,
+          func (elem : T, acc : Set<T>) : Set<T> { if (contains(acc, elem)) {delete(acc, elem)} else {acc}}
+        )
       }
     };
 
@@ -314,7 +322,7 @@ module {
     ///
     /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
     public func mapFilter<T1>(rbSet: Set<T1>, f : T1 -> ?T) : Set<T> {
-        var set = #leaf : Set<T>;
+        var set = (0, #leaf) : Set<T>;
         for(x in elements(rbSet)) {
           switch(f x){
             case null {};
@@ -394,7 +402,7 @@ module {
     };
   };
 
-  type IterRep<T> = List.List<{ #tr : Set<T>; #x : T }>;
+  type IterRep<T> = List.List<{ #tr : S<T>; #x : T }>;
 
   public type Direction = { #fwd; #bwd };
 
@@ -423,7 +431,7 @@ module {
   /// where `n` denotes the number of elements stored in the set.
   ///
   /// Note: Full map iteration creates `O(n)` temporary objects that will be collected as garbage.
-  public func iter<T>(rbSet : Set<T>, direction : Direction) : I.Iter<T> {
+  public func iter<T>((_, rbSet) : Set<T>, direction : Direction) : I.Iter<T> {
     object {
       var trees : IterRep<T> = ?(#tr(rbSet), null);
       public func next() : ?T {
@@ -491,7 +499,7 @@ module {
   /// Cost of empty set creation
   /// Runtime: `O(1)`.
   /// Space: `O(1)`
-  public func empty<T>() : Set<T> = #leaf;
+  public func empty<T>() : Set<T> = (0, #leaf);
 
   /// Determine the size of the tree as the number of elements.
   ///
@@ -512,14 +520,7 @@ module {
   /// Runtime: `O(n)`.
   /// Space: `O(1)`.
   /// where `n` denotes the number of elements stored in the tree.
-  public func size<T>(t : Set<T>) : Nat {
-    switch t {
-      case (#leaf) { 0 };
-      case (#node(_, l, _, r)) {
-        size(l) + size(r) + 1
-      }
-    }
-  };
+  public func size<T>((n, _) : Set<T>) : Nat = n;
 
   /// Collapses the elements in `rbSet` into a single value by starting with `base`
   /// and progessively combining elements into `base` with `combine`. Iteration runs
@@ -548,16 +549,22 @@ module {
   ///
   /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
   public func foldLeft<T, Accum>(
-    rbSet : Set<T>,
-    base : Accum,
+    (_, s) : Set<T>,
+    b : Accum,
     combine : (T, Accum) -> Accum
   ) : Accum
   {
-    var acc = base;
-    for(val in iter(rbSet, #fwd)){
-      acc := combine(val, acc);
+    func f (rbSet : S<T>, base : Accum) : Accum {
+    switch (rbSet) {
+      case (#leaf) { base };
+      case (#node(_, l, x, r)) {
+        let left = f(l, base);
+        let middle = combine(x, left);
+        f(r, middle)
+           };
     };
-    acc
+    };
+    f(s,b);
   };
 
   /// Collapses the elements in `rbSet` into a single value by starting with `base`
@@ -616,26 +623,29 @@ module {
   /// Space: `O(1)`
   public func isEmpty<T> (rbSet : Set<T>) : Bool {
     switch rbSet {
-      case (#leaf) { true };
+    case (_, #leaf) { true };
       case _ { false };
     };
   };
 
   module Internal {
-    public func contains<T>(t : Set<T>, compare : (T, T) -> O.Order, x : T) : Bool {
+    public func contains<T>((_, s) : Set<T>, compare : (T, T) -> O.Order, elem : T) : Bool {
+      func f (t: S<T>, x : T)  : Bool {
       switch t {
         case (#leaf) { false };
         case (#node(_c, l, x1, r)) {
           switch (compare(x, x1)) {
-            case (#less) { contains(l, compare, x) };
+            case (#less) { f(l, x) };
             case (#equal) { true };
-            case (#greater) { contains(r, compare, x) }
+            case (#greater) { f(r, x) }
           }
         }
       }
+      };
+      f (s, elem);
     };
 
-    func redden<T>(t : Set<T>) : Set<T> {
+    func redden<T>(t : S<T>) : S<T> {
       switch t {
         case (#node (#B, l, x, r)) {
           (#node (#R, l, x, r))
@@ -646,7 +656,7 @@ module {
       }
     };
 
-    func lbalance<T>(left : Set<T>, x : T, right : Set<T>) : Set<T> {
+    func lbalance<T>(left : S<T>, x : T, right : S<T>) : S<T> {
       switch (left, right) {
         case (#node(#R, #node(#R, l1, x1, r1), x2, r2), r) {
           #node(
@@ -668,7 +678,7 @@ module {
       }
     };
 
-    func rbalance<T>(left : Set<T>, x : T, right : Set<T>) : Set<T> {
+    func rbalance<T>(left : S<T>, x : T, right : S<T>) : S<T> {
       switch (left, right) {
         case (l, #node(#R, l1, x1, #node(#R, l2, x2, r2))) {
           #node(
@@ -691,14 +701,15 @@ module {
     };
 
     public func put<T> (
-      s : Set<T>,
+      (size, s) : Set<T>,
       compare : (T, T) -> O.Order,
       elem : T,
     )
-    : Set<T>{
-      func ins(tree : Set<T>) : Set<T> {
+      : Set<T>{
+      var changed : Bool = true;
+      func ins(tree : S<T>) : S<T> {
         switch tree {
-          case (#leaf) {
+        case (#leaf) {
             #node(#R, #leaf, elem, #leaf)
           };
           case (#node(#B, left, x, right)) {
@@ -710,6 +721,7 @@ module {
                 rbalance(left, x, ins right)
               };
               case (#equal) {
+                changed := false;
                 #node(#B, left, x, right)
               }
             }
@@ -723,6 +735,7 @@ module {
                 #node(#R, left, x, ins right)
               };
               case (#equal) {
+                changed := true;
                 #node(#R, left, x, right)
               }
             }
@@ -730,14 +743,14 @@ module {
         };
       };
       switch (ins s) {
-        case (#node(#R, left, x, right)) {
-          #node(#B, left, x, right);
+      case (#node(#R, left, x, right)) {
+             (if changed {size + 1} else {size} , #node(#B, left, x, right))
         };
-        case other { other };
+      case other { (if changed {size + 1} else {size} , other) };
       };
     };
 
-    func balLeft<T>(left : Set<T>, x : T, right : Set<T>) : Set<T> {
+    func balLeft<T>(left : S<T>, x : T, right : S<T>) : S<T> {
       switch (left, right) {
         case (#node(#R, l1, x1, r1), r) {
           #node(#R, #node(#B, l1, x1, r1), x, r)
@@ -755,7 +768,7 @@ module {
       }
     };
 
-    func balRight<T>(left : Set<T>, x : T, right : Set<T>) : Set<T> {
+    func balRight<T>(left : S<T>, x : T, right : S<T>) : S<T> {
       switch (left, right) {
         case (l, #node(#R, l1, x1, r1)) {
           #node(#R, l, x, #node(#B, l1, x1, r1))
@@ -773,7 +786,7 @@ module {
       }
     };
 
-    func append<T>(left : Set<T>, right: Set<T>) : Set<T> {
+    func append<T>(left : S<T>, right: S<T>) : S<T> {
       switch (left, right) {
         case (#leaf,  _) { right };
         case (_,  #leaf) { left };
@@ -818,8 +831,9 @@ module {
       }
     };
 
-    public func delete<T>(tree : Set<T>, compare : (T, T) -> O.Order, x : T) : Set<T> {
-      func delNode(left : Set<T>, x1 : T, right : Set<T>) : Set<T> {
+    public func delete<T>((size, tree) : Set<T>, compare : (T, T) -> O.Order, x : T) : Set<T> {
+      var changed : Bool = false;
+      func delNode(left : S<T>, x1 : T, right : S<T>) : S<T> {
         switch (compare (x, x1)) {
           case (#less) {
             let newLeft = del left;
@@ -844,11 +858,12 @@ module {
             }
           };
           case (#equal) {
+            changed := true;
             append(left, right)
           };
         }
       };
-      func del(tree : Set<T>) : Set<T> {
+      func del(tree : S<T>) : S<T> {
         switch tree {
           case (#leaf) {
             tree
@@ -860,108 +875,9 @@ module {
       };
       switch (del(tree)) {
         case (#node(#R, left, x1, right)) {
-          #node(#B, left, x1, right);
+               (if changed {size - 1} else {size}, #node(#B, left, x1, right));
         };
-        case other { other };
-      };
-    };
-
-    // TODO: Instead, consider storing the black height in the node constructor
-    public func blackHeight<T> (rbSet : Set<T>) : Nat {
-      func f (node : Set<T>, acc : Nat) : Nat {
-        switch node {
-          case (#leaf) { acc };
-          case (#node (#R, l1, _, _)) { f(l1, acc) };
-          case (#node (#B, l1, _, _)) { f(l1, acc + 1) }
-        }
-      };
-      f (rbSet, 0)
-    };
-
-    public func joinL<T>(l : Set<T>, x : T, r : Set<T>) : Set<T> {
-      if (blackHeight r <= blackHeight l) { (#node (#R, l, x, r)) }
-      else {
-        switch r {
-          case (#node (#R, rl, rx, rr)) { (#node (#R, joinL(l, x, rl) , rx, rr)) };
-          case (#node (#B, rl, rx, rr)) { balLeft (joinL(l, x, rl), rx, rr) };
-          case _ { Debug.trap "joinL" };
-        }
-      }
-    };
-
-    public func joinR<T>(l : Set<T>, x : T, r : Set<T>) : Set<T> {
-      if (blackHeight l <= blackHeight r) { (#node (#R, l, x, r)) }
-      else {
-        switch l {
-          case (#node (#R, ll, lx, lr)) { (#node (#R, ll , lx, joinR (lr, x, r))) };
-          case (#node (#B, ll, lx, lr)) { balRight (ll, lx, joinR (lr, x, r)) };
-          case _ { Debug.trap "joinR" };
-        }
-      }
-    };
-
-    public func paint<T>(color : Color, rbMap : Set<T>) : Set<T> {
-      switch rbMap {
-        case (#leaf) { #leaf };
-        case (#node (_, l, x, r)) { (#node (color, l, x, r)) };
-      }
-    };
-
-    public func splitMin<T> (rbSet : Set<T>) : (T, Set<T>) {
-      switch rbSet {
-        case (#leaf) { Debug.trap "splitMin" };
-        case (#node(_, #leaf, x, r)) { (x, r) };
-        case (#node(_, l, x, r)) {
-          let (m, l2) = splitMin l;
-          (m, join(l2, x, r))
-        };
-      }
-    };
-
-    // Joins an element and two trees.
-    // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
-    public func join<T>(l : Set<T>, x : T, r : Set<T>) : Set<T> {
-      if (Internal.blackHeight r < Internal.blackHeight l) {
-        return Internal.paint(#B, Internal.joinR(l, x, r))
-      };
-      if (Internal.blackHeight l < Internal.blackHeight r) {
-        return Internal.paint(#B, Internal.joinL(l, x, r))
-      };
-      return (#node (#B, l, x, r))
-    };
-
-    // Joins two trees.
-    // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
-    public func join2<T>(l : Set<T>, r : Set<T>) : Set<T> {
-      switch r {
-        case (#leaf) { l };
-        case _ {
-          let (m, r2) = Internal.splitMin r;
-          join(l, m, r2)
-        };
-      }
-    };
-
-    // Splits `rbSet` with respect to a given element `x`, into tuple `(l, b, r)`
-    // such that `l` contains the elements less than `x`, `r` contains the elements greater than `x`
-    // and `b` is `true` if `x` was in the `rbSet`.
-    // See Tobias Nipkow's "Functional Data Structures and Algorithms", 117
-    public func split<T>(x : T, rbSet : Set<T>, compare : (T, T) -> O.Order) : (Set<T>, Bool, Set<T>) {
-      switch rbSet {
-        case (#leaf) { (#leaf, false, #leaf)};
-        case (#node (_, l, x1, r)) {
-          switch (compare(x, x1)) {
-            case (#less) {
-              let (l1, b, l2) = split(x, l, compare);
-              (l1, b, join(l2, x1, r))
-            };
-            case (#equal) { (l, true, r) };
-            case (#greater) {
-              let (r1, b, r2) = split(x, r, compare);
-              (join(l, x1, r1), b, r2)
-            };
-          };
-        };
+        case other { (if changed {size - 1} else {size}, other) };
       };
     };
   }
