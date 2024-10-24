@@ -27,15 +27,6 @@ import List "List";
 import Nat "Nat";
 import O "Order";
 
-// TODO: a faster, more compact and less indirect representation would be:
-// type Map<K, V> = {
-//  #red : (Map<K, V>, K, V, Map<K, V>);
-//  #black : (Map<K, V>, K, V, Map<K, V>);
-//  #leaf
-//};
-// (this inlines the colors into the variant, flattens a tuple, and removes a (now) redundant option, for considerable heap savings.)
-// It would also make sense to maintain the size in a separate root for 0(1) access.
-
 module {
 
   /// Red-black tree of nodes with key-value entries, ordered by the keys.
@@ -54,7 +45,7 @@ module {
   ///
   /// `MapOps` contains methods that require `compare` internally:
   /// operations that may reshape a `Map` or should find something.
-  public class MapOps<K>(compare : (K,K) -> O.Order) {
+  public class MapOps<K>(compare : (K, K) -> O.Order) {
 
     /// Returns a new map, containing all entries given by the iterator `i`.
     /// If there are multiple entries with the same key the last one is taken.
@@ -698,7 +689,7 @@ module {
           (#red (l, x, y, r))
         };
         case _ {
-          Debug.trap "RBTree.red"
+          Debug.trap "PersistentOrderedMap.red"
         }
       }
     };
