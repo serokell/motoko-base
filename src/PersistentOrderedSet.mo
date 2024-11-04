@@ -294,7 +294,7 @@ module {
     /// Space: `O(n)` retained memory
     /// where `n` denotes the number of elements stored in the set.
     public func map<T1>(s : Set<T1>, f : T1 -> T) : Set<T> = // TODO: optimize via direct recursion
-      foldLeft(s, empty(), func (elem : T1, acc : Set<T>) : Set<T> { put(acc, f(elem)) });
+      Internal.foldLeft(s.root, empty(), func (elem : T1, acc : Set<T>) : Set<T> { put(acc, f(elem)) });
 
     /// Creates a new map by applying `f` to each element in the set `s`. For each element
     /// `x` in the old set, if `f` evaluates to `null`, the element is discarded.
@@ -337,7 +337,7 @@ module {
           }
         }
       };
-      foldLeft(s, empty(), combine)
+      Internal.foldLeft(s.root, empty(), combine)
     };
 
     /// Test if `set1` is subset of `set2`.
@@ -427,7 +427,7 @@ module {
     /// where `n` denotes the number of elements stored in the set.
     ///
     /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
-    public func vals<T>(s : Set<T>) : I.Iter<T> 
+    public func vals(s : Set<T>) : I.Iter<T> 
       = Internal.iter(s.root, #fwd);
 
     /// Same as `vals()` but iterates over elements of the set `s` in the descending order.
@@ -451,7 +451,7 @@ module {
     /// where `n` denotes the number of elements stored in the set.
     ///
     /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
-    public func valsRev<T>(s : Set<T>) : I.Iter<T>
+    public func valsRev(s : Set<T>) : I.Iter<T>
       = Internal.iter(s.root, #bwd);
 
     /// Create a new empty Set.
@@ -468,7 +468,7 @@ module {
     /// Cost of empty set creation
     /// Runtime: `O(1)`.
     /// Space: `O(1)`
-    public func empty<T>() : Set<T> 
+    public func empty() : Set<T> 
       = { root = #leaf; size = 0};
 
     /// Returns the number of elements in the set.
@@ -488,7 +488,7 @@ module {
     ///
     /// Runtime: `O(1)`.
     /// Space: `O(1)`.
-    public func size<T>(s : Set<T>) : Nat
+    public func size(s : Set<T>) : Nat
       = s.size;
 
     /// Collapses the elements in `set` into a single value by starting with `base`
@@ -517,7 +517,7 @@ module {
     /// where `n` denotes the number of elements stored in the set.
     ///
     /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
-    public func foldLeft<T, Accum>(
+    public func foldLeft<Accum>(
       set : Set<T>,
       base : Accum,
       combine : (T, Accum) -> Accum
@@ -550,7 +550,7 @@ module {
     /// where `n` denotes the number of elements stored in the set.
     ///
     /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
-    public func foldRight<T, Accum>(
+    public func foldRight<Accum>(
       set : Set<T>,
       base : Accum,
       combine : (T, Accum) -> Accum
@@ -571,7 +571,7 @@ module {
     ///
     /// Runtime: `O(1)`.
     /// Space: `O(1)`
-    public func isEmpty<T> (s : Set<T>) : Bool {
+    public func isEmpty(s : Set<T>) : Bool {
       switch (s.root) {
         case (#leaf) { true };
         case _ { false };

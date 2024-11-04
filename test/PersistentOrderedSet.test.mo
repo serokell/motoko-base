@@ -345,7 +345,7 @@ func rebalanceTests(buildTestSet : () -> Set.Set<Nat>) : [Suite.Suite] =
   ];
 
 buildTestSet := func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 2);
   rbSet := insert(rbSet, 1);
   rbSet := insert(rbSet, 0);
@@ -357,7 +357,7 @@ run(suite("rebalance left, left", rebalanceTests(buildTestSet)));
 /* --------------------------------------- */
 
 buildTestSet := func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 2);
   rbSet := insert(rbSet, 0);
   rbSet := insert(rbSet, 1);
@@ -369,7 +369,7 @@ run(suite("rebalance left, right", rebalanceTests(buildTestSet)));
 /* --------------------------------------- */
 
 buildTestSet := func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 0);
   rbSet := insert(rbSet, 2);
   rbSet := insert(rbSet, 1);
@@ -381,7 +381,7 @@ run(suite("rebalance right, left", rebalanceTests(buildTestSet)));
 /* --------------------------------------- */
 
 buildTestSet := func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 0);
   rbSet := insert(rbSet, 1);
   rbSet := insert(rbSet, 2);
@@ -422,7 +422,7 @@ run(
 /* --------------------------------------- */
 
 let buildTestSet012 = func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 0);
   rbSet := insert(rbSet, 1);
   rbSet := insert(rbSet, 2);
@@ -430,14 +430,14 @@ let buildTestSet012 = func() : Set.Set<Nat> {
 };
 
 let buildTestSet01 = func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 0);
   rbSet := insert(rbSet, 1);
   rbSet
 };
 
 let buildTestSet234 = func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 2);
   rbSet := insert(rbSet, 3);
   rbSet := insert(rbSet, 4);
@@ -445,7 +445,7 @@ let buildTestSet234 = func() : Set.Set<Nat> {
 };
 
 let buildTestSet345 = func() : Set.Set<Nat> {
-  var rbSet = natSetOps.empty<Nat>();
+  var rbSet = natSetOps.empty();
   rbSet := insert(rbSet, 5);
   rbSet := insert(rbSet, 3);
   rbSet := insert(rbSet, 4);
@@ -463,12 +463,12 @@ run(
       ),
       test(
         "subset/empty set is subset of itself",
-        natSetOps.isSubset(natSetOps.empty<Nat>(), natSetOps.empty<Nat>()),
+        natSetOps.isSubset(natSetOps.empty(), natSetOps.empty()),
         M.equals(T.bool(true))
       ),
       test(
         "subset/empty set is subset of another set",
-        natSetOps.isSubset(natSetOps.empty<Nat>(), buildTestSet012()),
+        natSetOps.isSubset(natSetOps.empty(), buildTestSet012()),
         M.equals(T.bool(true))
       ),
       test(
@@ -483,7 +483,7 @@ run(
       ),
       test(
         "equals/empty set",
-        natSetOps.equals(natSetOps.empty<Nat>(), natSetOps.empty<Nat>()),
+        natSetOps.equals(natSetOps.empty(), natSetOps.empty()),
         M.equals(T.bool(true))
       ),
       test(
@@ -498,12 +498,12 @@ run(
       ),
       test(
         "union/empty set",
-        natSetOps.union(natSetOps.empty<Nat>(), natSetOps.empty<Nat>()),
+        natSetOps.union(natSetOps.empty(), natSetOps.empty()),
         SetMatcher([])
       ),
       test(
         "union/union with empty set",
-        natSetOps.union(buildTestSet012(), natSetOps.empty<Nat>()),
+        natSetOps.union(buildTestSet012(), natSetOps.empty()),
         SetMatcher([0, 1, 2])
       ),
       test(
@@ -523,12 +523,12 @@ run(
       ),
       test(
         "intersect/empty set",
-        natSetOps.intersect(natSetOps.empty<Nat>(), natSetOps.empty<Nat>()),
+        natSetOps.intersect(natSetOps.empty(), natSetOps.empty()),
         SetMatcher([])
       ),
       test(
         "intersect/intersect with empty set",
-        natSetOps.intersect(buildTestSet012(), natSetOps.empty<Nat>()),
+        natSetOps.intersect(buildTestSet012(), natSetOps.empty()),
         SetMatcher([])
       ),
       test(
@@ -553,17 +553,17 @@ run(
       ),
       test(
         "diff/empty set",
-        natSetOps.diff(natSetOps.empty<Nat>(), natSetOps.empty<Nat>()),
+        natSetOps.diff(natSetOps.empty(), natSetOps.empty()),
         SetMatcher([])
       ),
       test(
         "diff/diff with empty set",
-        natSetOps.diff(buildTestSet012(), natSetOps.empty<Nat>()),
+        natSetOps.diff(buildTestSet012(), natSetOps.empty()),
         SetMatcher([0, 1, 2])
       ),
       test(
         "diff/diff with empty set 2",
-        natSetOps.diff(natSetOps.empty<Nat>(), buildTestSet012()),
+        natSetOps.diff(natSetOps.empty(), buildTestSet012()),
         SetMatcher([])
       ),
       test(

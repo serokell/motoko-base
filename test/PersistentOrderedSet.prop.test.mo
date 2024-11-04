@@ -131,7 +131,7 @@ func run_all_props(range: (Nat, Nat), size: Nat, set_samples: Nat, query_samples
         test("not contains(empty(), e)", label res : Bool {
           for (_query_ix in Iter.range(0, query_samples-1)) {
             let elem = Random.nextNat(range);
-            if(natSet.contains(natSet.empty<Nat>(), elem))
+            if(natSet.contains(natSet.empty(), elem))
               break res(false);
           };
           true;
