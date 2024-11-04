@@ -431,6 +431,27 @@ module {
   public func vals<T>(s : Set<T>) : I.Iter<T> 
     = Internal.iter(s.root, #fwd);
 
+  /// Same as `vals()` but iterates over elements of the set `s` in the descending order.
+  ///
+  /// Example:
+  /// ```motoko
+  /// import Set "mo:base/PersistentOrderedSet";
+  /// import Nat "mo:base/Nat";
+  /// import Iter "mo:base/Iter";
+  /// import Debug "mo:base/Debug";
+  ///
+  /// let setOps = Set.SetOps<Nat>(Nat.compare);
+  /// let set = setOps.fromIter(Iter.fromArray([0, 2, 1]));
+  ///
+  /// Debug.print(debug_show(Iter.toArray(Set.valsRev(set))));
+  /// // [2, 1, 0]
+  /// ```
+  /// Cost of iteration over all elements:
+  /// Runtime: `O(n)`.
+  /// Space: `O(log(n))` retained memory plus garbage, see the note below.
+  /// where `n` denotes the number of elements stored in the set.
+  ///
+  /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
   public func valsRev<T>(s : Set<T>) : I.Iter<T>
     = Internal.iter(s.root, #bwd);
 
