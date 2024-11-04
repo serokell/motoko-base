@@ -500,7 +500,7 @@ module {
   ///
   /// Note: Full set iteration creates `O(n)` temporary objects that will be collected as garbage.
   public func elements<T>(s : Set<T>) : I.Iter<T> 
-    = Internal.iter(s.root, #fwd);
+    = iter(s.root, #fwd);
 
   /// Create a new empty Set.
   ///
