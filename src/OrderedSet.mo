@@ -242,7 +242,7 @@ module {
     /// Space: `O(1)`, retained memory plus garbage, see the note below.
     /// where `m` and `n` denote the number of elements in the sets, and `m <= n`.
     ///
-    /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
+    /// Note: Creates `O(m * log(n))` temporary objects that will be collected as garbage.
     public func union(s1 : Set<T>, s2 : Set<T>) : Set<T> {
       if (size(s1) < size(s2)) {
         foldLeft(s1, s2, func(elem : T, acc : Set<T>) : Set<T> { Internal.put(acc, compare, elem) })
@@ -272,7 +272,7 @@ module {
     /// Space: `O(1)`, retained memory plus garbage, see the note below.
     /// where `m` and `n` denote the number of elements in the sets, and `m <= n`.
     ///
-    /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
+    /// Note: Creates `O(m * log(n))` temporary objects that will be collected as garbage.
     public func intersect(s1 : Set<T>, s2 : Set<T>) : Set<T> {
       if (size(s1) < size(s2)) {
         foldLeft(s1, empty(),
@@ -318,7 +318,7 @@ module {
     /// Space: `O(1)`, retained memory plus garbage, see the note below.
     /// where `m` and `n` denote the number of elements in the sets, and `m <= n`.
     ///
-    /// Note: Creates `O(log(n))` temporary objects that will be collected as garbage.
+    /// Note: Creates `O(m * log(n))` temporary objects that will be collected as garbage.
     public func diff(s1 : Set<T>, s2 : Set<T>) : Set<T> {
       if (size(s1) < size(s2)) {
         foldLeft(s1, empty(),
