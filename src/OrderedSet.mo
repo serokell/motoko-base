@@ -18,10 +18,10 @@
 /// * Stefan Kahrs, "Red-black trees with types", Journal of Functional Programming, 11(4): 425-432 (2001), [version 1 in web appendix](http://www.cs.ukc.ac.uk/people/staff/smk/redblack/rb.html).
 
 import Debug "Debug";
+import Buffer "Buffer";
 import I "Iter";
 import List "List";
 import Nat "Nat";
-import Option "Option";
 import O "Order";
 
 module {
@@ -274,27 +274,21 @@ module {
     ///
     /// Note: Creates `O(m * log(n))` temporary objects that will be collected as garbage.
     public func intersect(s1 : Set<T>, s2 : Set<T>) : Set<T> {
-      if (size(s1) < size(s2)) {
-        foldLeft(s1, empty(),
-          func (elem : T, acc : Set<T>) : Set<T> {
-            if (Internal.contains(s2.root, compare, elem)) { 
-              Internal.put(acc, compare, elem) 
-            } else { 
-              acc 
-            }
+      let elems = Buffer.Buffer<T>(s1.size);
+      if (s1.size < s2.size) {
+        Internal.iterate(s1.root, func (x: T) {
+          if (Internal.contains(s2.root, compare, x)) {
+            elems.add(x)
           }
-        )
+        });
       } else {
-        foldLeft(s2, empty(),
-          func (elem : T, acc : Set<T>) : Set<T> {
-            if (Internal.contains(s1.root, compare, elem)) { 
-              Internal.put(acc, compare, elem) 
-            } else { 
-              acc 
-            }
+        Internal.iterate(s2.root, func (x: T) {
+          if (Internal.contains(s1.root, compare, x)) {
+            elems.add(x)
           }
-        )
-      }
+        });
+      };
+      { root = Internal.buildFromSorted(elems); size = elems.size() }
     };
 
     /// [Set difference](https://en.wikipedia.org/wiki/Difference_(set_theory)).
@@ -321,11 +315,14 @@ module {
     /// Note: Creates `O(m * log(n))` temporary objects that will be collected as garbage.
     public func diff(s1 : Set<T>, s2 : Set<T>) : Set<T> {
       if (size(s1) < size(s2)) {
-        foldLeft(s1, empty(),
-          func (elem : T, acc : Set<T>) : Set<T> {
-            if (Internal.contains(s2.root, compare, elem)) { acc } else { Internal.put(acc, compare, elem) }
+        let elems = Buffer.Buffer<T>(s1.size);
+        Internal.iterate(s1.root, func (x : T) {
+            if (not Internal.contains(s2.root, compare, x)) { 
+              elems.add(x)
+            }
           }
-        )
+        );
+        { root = Internal.buildFromSorted(elems); size = elems.size() }
       }
       else {
         foldLeft(s2, s1,
@@ -647,7 +644,7 @@ module {
     /// ```
     ///
     /// Runtime: `O(1)`.
-    /// Space: `O(1)`
+    /// Space: `O(1)`.
     public func isEmpty(s : Set<T>) : Bool {
       switch (s.root) {
         case (#leaf) { true };
@@ -780,6 +777,45 @@ module {
         };
         case (#leaf) { false }
       }
+    };
+
+    public func iterate<V>(m : Tree<V>, f : V -> ()) {
+      switch m {
+        case (#leaf) { };
+        case (#black(l, v, r)) { iterate(l, f); f(v); iterate(r, f) };
+        case (#red(l, v, r))   { iterate(l, f); f(v); iterate(r, f) }
+      }
+    };
+
+    // build tree from elements arr[l]..arr[r-1]
+    public func buildFromSorted<V>(buf : Buffer.Buffer<V>) : Tree<V> {
+      var maxDepth = 0;
+      var maxSize = 1;
+      while (maxSize < buf.size()) {
+        maxDepth += 1;
+        maxSize += maxSize + 1;
+      };
+      maxDepth := if (maxDepth == 0) {1} else {maxDepth}; // keep root black for 1 element tree
+      buildFromSortedHelper(buf, 0, buf.size(), 0, maxDepth);
+    };
+
+    func buildFromSortedHelper<V>(buf : Buffer.Buffer<V>, l : Nat, r : Nat, depth : Nat, maxDepth : Nat) : Tree<V> {
+      if (l + 1 == r) {
+        if (depth == maxDepth) {
+          return #red(#leaf, buf.get(l), #leaf);
+        } else {
+          return #black(#leaf, buf.get(l), #leaf);
+        }
+      };
+      if (l >= r) {
+        return #leaf;
+      };
+      let m = (l + r) / 2;
+      return #black(
+               buildFromSortedHelper(buf, l, m, depth+1, maxDepth), 
+               buf.get(m), 
+               buildFromSortedHelper(buf, m+1, r, depth+1, maxDepth)
+              )
     };
 
     type IterRep<T> = List.List<{ #tr : Tree<T>; #x : T }>;
@@ -1113,6 +1149,10 @@ module {
 
   /// Test helpers
   public module SetDebug {
+    public func buildFromSorted<T>(a : [T]) : Set<T> {
+      { root = Internal.buildFromSorted(Buffer.fromArray<T>(a)); size = a.size()}
+    };
+
     // check binary search tree order of elements and black depth invariant of the RB-tree
     public func checkSetInvariants<T>(s : Set<T>, comp : (T, T) -> O.Order) {
       ignore blackDepth(s.root, comp)
