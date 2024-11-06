@@ -465,50 +465,24 @@ module {
       isSubsetHelper(s1.root, s2.root)
     };
 
+    func helper(t1l: Tree<T>, x1: T, t1r: Tree<T>, t2:Tree<T>, t2l: Tree<T>, x2: T, t2r: Tree<T>): Bool {
+      switch (compare(x1, x2)) {
+        case (#equal)   { isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2r) };
+        // x1 < x2 ==> x1 \in t2l /\ t1l \subset t2l
+        case (#less)    { Internal.contains(t2l, compare, x1) and isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2) };
+        // x2 < x1 ==> x1 \in t2r /\ t1r \subset t2r  
+        case (#greater) { Internal.contains(t2r, compare, x1) and isSubsetHelper(t1l, t2) and isSubsetHelper(t1r, t2r) }
+      }
+    };
+
     func isSubsetHelper(t1 : Tree<T>, t2 : Tree<T>) : Bool {
       switch (t1, t2) {
-        case (#leaf, _) { 
-          true 
-        };
-        case (_, #leaf) {
-          false;
-        };
-        case (#red(t1l, x1, t1r), #red(t2l, x2, t2r)) {
-          switch (compare(x1, x2)) {
-            case (#equal)   { isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2r) };
-            // x1 < x2 ==> x1 \in t2l /\ t1l \subset t2l
-            case (#less)    { Internal.contains(t2l, compare, x1) and isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2) };
-            // x2 < x1 ==> x1 \in t2r /\ t1r \subset t2r  
-            case (#greater) { Internal.contains(t2r, compare, x1) and isSubsetHelper(t1l, t2) and isSubsetHelper(t1r, t2r) }
-          }
-        };
-        case (#red(t1l, x1, t1r), #black(t2l, x2, t2r)) { // note: copy of #red, #red branch
-          switch (compare(x1, x2)) {
-            case (#equal)   { isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2r) };
-            // x1 < x2 ==> x1 \in t2l /\ t1l \subset t2l
-            case (#less)    { Internal.contains(t2l, compare, x1) and isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2) };
-            // x2 < x1 ==> x1 \in t2r /\ t1r \subset t2r  
-            case (#greater) { Internal.contains(t2r, compare, x1) and isSubsetHelper(t1l, t2) and isSubsetHelper(t1r, t2r) }
-          }
-        };
-        case (#black(t1l, x1, t1r), #red(t2l, x2, t2r)) { // note: copy of #red, #red branch
-          switch (compare(x1, x2)) {
-            case (#equal)   { isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2r) };
-            // x1 < x2 ==> x1 \in t2l /\ t1l \subset t2l
-            case (#less)    { Internal.contains(t2l, compare, x1) and isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2) };
-            // x2 < x1 ==> x1 \in t2r /\ t1r \subset t2r  
-            case (#greater) { Internal.contains(t2r, compare, x1) and isSubsetHelper(t1l, t2) and isSubsetHelper(t1r, t2r) }
-          }
-        };
-        case (#black(t1l, x1, t1r), #black(t2l, x2, t2r)) { // note: copy of #red, #red branch
-          switch (compare(x1, x2)) {
-            case (#equal)   { isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2r) };
-            // x1 < x2 ==> x1 \in t2l /\ t1l \subset t2l
-            case (#less)    { Internal.contains(t2l, compare, x1) and isSubsetHelper(t1l, t2l) and isSubsetHelper(t1r, t2) };
-            // x2 < x1 ==> x1 \in t2r /\ t1r \subset t2r  
-            case (#greater) { Internal.contains(t2r, compare, x1) and isSubsetHelper(t1l, t2) and isSubsetHelper(t1r, t2r) }
-          }
-        }
+        case (#leaf, _) { true  };
+        case (_, #leaf) { false };
+        case (#red(t1l, x1, t1r), #red(t2l, x2, t2r))     { helper(t1l, x1, t1r, t2, t2l, x2, t2r) };
+        case (#black(t1l, x1, t1r), #red(t2l, x2, t2r))   { helper(t1l, x1, t1r, t2, t2l, x2, t2r) };
+        case (#red(t1l, x1, t1r), #black(t2l, x2, t2r))   { helper(t1l, x1, t1r, t2, t2l, x2, t2r) };
+        case (#black(t1l, x1, t1r), #black(t2l, x2, t2r)) { helper(t1l, x1, t1r, t2, t2l, x2, t2r) };
       }
     };
 
